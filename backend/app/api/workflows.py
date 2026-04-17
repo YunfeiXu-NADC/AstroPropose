@@ -6,6 +6,52 @@ from app.api.auth import token_required, admin_required
 bp = Blueprint('workflows', __name__)
 
 
+def _sync_workflow_states_from_definition(workflow, definition):
+    """Keep WorkflowState rows aligned with node definitions used by the editor."""
+    if not isinstance(definition, dict):
+        return
+
+    nodes = definition.get("nodes") or []
+    if not isinstance(nodes, list):
+        return
+
+    desired_states = []
+    for node in nodes:
+        data = node.get("data") or {}
+        name = data.get("label")
+        if not name:
+            continue
+        desired_states.append(
+            {
+                "name": name,
+                "description": data.get("description"),
+                "form_template_id": data.get("formTemplateId"),
+                "form_required": bool(data.get("formRequired", False)),
+            }
+        )
+
+    existing_states = {
+        state.name: state
+        for state in WorkflowState.query.filter_by(workflow_id=workflow.id).all()
+    }
+    desired_names = {state["name"] for state in desired_states}
+
+    for state_data in desired_states:
+        state = existing_states.get(state_data["name"])
+        if state is None:
+            state = WorkflowState(name=state_data["name"], workflow=workflow)
+            db.session.add(state)
+        state.description = state_data["description"]
+        state.form_template_id = state_data["form_template_id"]
+        state.form_required = state_data["form_required"]
+
+    for state_name, state in existing_states.items():
+        if state_name in desired_names:
+            continue
+        if state.proposals.count() == 0:
+            db.session.delete(state)
+
+
 @bp.route('/', methods=['GET'])
 @token_required
 def get_workflows(current_user):
@@ -42,6 +88,8 @@ def create_workflow(current_user):
         definition=data.get('definition'),
     )
     db.session.add(new_workflow)
+    db.session.flush()
+    _sync_workflow_states_from_definition(new_workflow, data.get('definition'))
     db.session.commit()
     return jsonify({'message': 'Workflow created successfully', 'id': new_workflow.id}), 201
 
@@ -60,6 +108,7 @@ def update_workflow(current_user, id):
     workflow.description = data.get('description', workflow.description)
     if 'definition' in data:
         workflow.definition = data['definition']
+        _sync_workflow_states_from_definition(workflow, data['definition'])
     db.session.commit()
     return jsonify({'message': 'Workflow updated successfully'})
 

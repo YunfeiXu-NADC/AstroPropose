@@ -85,6 +85,9 @@ const Navbar = () => {
               <Link href="/admin/forms" className="px-3 py-2 rounded hover:bg-gray-700">
                 Forms
               </Link>
+              <Link href="/admin/proposal-types" className="px-3 py-2 rounded hover:bg-gray-700">
+                Publish
+              </Link>
               <Link href="/admin/external-tools" className="px-3 py-2 rounded hover:bg-gray-700">
                 🔌 Tools
               </Link>

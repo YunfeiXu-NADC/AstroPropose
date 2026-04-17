@@ -14,6 +14,7 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { listFormTemplates, listExternalTools, getExternalTool, getFormTemplate } from '@/lib/api';
+import { createExampleWorkflowPreset } from '@/lib/workflowPreset.mjs';
 
 // Custom state node component
 const StateNode = ({ data, selected }) => {
@@ -479,62 +480,11 @@ const WorkflowEditor = ({ initialDefinition, onSave }) => {
   };
 
   const insertPreset = () => {
-    // Also add preset nodes
-    setNodes([
-      { id: 'draft', type: 'stateNode', data: { label: 'Draft' }, position: { x: 100, y: 50 } },
-      { id: 'submitted', type: 'stateNode', data: { label: 'Submitted' }, position: { x: 300, y: 50 } },
-      { id: 'scheduling', type: 'stateNode', data: { label: 'Scheduling' }, position: { x: 500, y: 50 } },
-      { id: 'confirmed', type: 'stateNode', data: { label: 'Phase1Confirmed' }, position: { x: 300, y: 180 } },
-      { id: 'review', type: 'stateNode', data: { label: 'Under Review' }, position: { x: 100, y: 180 } },
-      { id: 'approved', type: 'stateNode', data: { label: 'Approved' }, position: { x: 100, y: 310 } },
-    ]);
-    setEdges([
-      { id: 'e1', source: 'draft', target: 'submitted', animated: true },
-      { id: 'e2', source: 'submitted', target: 'scheduling', animated: true },
-      { id: 'e3', source: 'scheduling', target: 'confirmed', animated: true },
-      { id: 'e4', source: 'confirmed', target: 'review', animated: true },
-      { id: 'e5', source: 'review', target: 'approved', animated: true },
-    ]);
-    setInitialState('Draft');
-    
-    const preset = [
-      {
-        name: 'submit_phase1',
-        label: 'Submit Phase-1',
-        from: 'Draft',
-        to: 'Submitted',
-        roles: ['Proposer'],
-      },
-      {
-        name: 'enter_scheduling',
-        label: 'Enter Scheduling',
-        from: 'Submitted',
-        to: 'Scheduling',
-        roles: ['Admin'],
-      },
-      {
-        name: 'complete_scheduling',
-        label: 'Complete Scheduling',
-        from: 'Scheduling',
-        to: 'Phase1Confirmed',
-        roles: ['Instrument Scheduler'],
-      },
-      {
-        name: 'start_review',
-        label: 'Start Review',
-        from: 'Phase1Confirmed',
-        to: 'Under Review',
-        roles: ['Admin', 'Panel Chair'],
-      },
-      {
-        name: 'approve',
-        label: 'Approve Proposal',
-        from: 'Under Review',
-        to: 'Approved',
-        roles: ['Panel Chair'],
-      },
-    ];
-    setTransitionsDraft(JSON.stringify(preset, null, 2));
+    const preset = createExampleWorkflowPreset();
+    setNodes(preset.nodes);
+    setEdges(preset.edges);
+    setInitialState(preset.initial_state);
+    setTransitionsDraft(JSON.stringify(preset.transitions, null, 2));
   };
 
   return (

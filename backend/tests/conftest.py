@@ -1,5 +1,6 @@
 import pytest
 import os
+import tempfile
 
 from app import create_app, db
 from app.models.models import (
@@ -26,13 +27,21 @@ class TestConfig:
 
 @pytest.fixture
 def app():
-    app = create_app(TestConfig)
+    fd, db_path = tempfile.mkstemp(suffix=".db", dir=TestConfig.basedir)
+    os.close(fd)
+
+    class RuntimeTestConfig(TestConfig):
+        SQLALCHEMY_DATABASE_URI = f"sqlite:///{db_path}"
+
+    app = create_app(RuntimeTestConfig)
     with app.app_context():
         db.create_all()
         seed_reference_data()
         yield app
         db.session.remove()
         db.drop_all()
+    if os.path.exists(db_path):
+        os.remove(db_path)
 
 
 @pytest.fixture
@@ -114,3 +123,20 @@ def proposer_token(app):
     token = response.get_json()["token"]
     return token
 
+
+@pytest.fixture
+def admin_token(app):
+    """Create an admin account and return its authentication token."""
+    user = User(username="admin-user", email="admin@example.com")
+    user.set_password("password123")
+    role = Role.query.filter_by(name="Admin").first()
+    user.roles.append(role)
+    db.session.add(user)
+    db.session.commit()
+
+    client = app.test_client()
+    response = client.post(
+        "/api/auth/login", json={"username": "admin-user", "password": "password123"}
+    )
+    token = response.get_json()["token"]
+    return token

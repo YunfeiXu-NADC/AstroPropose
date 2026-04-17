@@ -7,10 +7,15 @@ import {
   createProposal,
   getFormTemplate,
   getProposalTypes,
+  getWorkflow,
+  listProposalTransitions,
   listFormTemplates,
   listInstruments,
+  triggerProposalTransition,
   executeToolOperationFromForm,
 } from '@/lib/api';
+import { resolvePhase1TemplateId } from '@/lib/proposalFormConfig.mjs';
+import { buildProposalCreatePayload } from '@/lib/proposalSubmission.mjs';
 
 // Simple field renderers (non-repeatable)
 const SIMPLE_FIELD_RENDERERS = {
@@ -568,19 +573,12 @@ export default function NewProposalPage() {
     async function bootstrap() {
       setError('');
       try {
-        const [types, instrumentList, templates] = await Promise.all([
+        const [types, instrumentList] = await Promise.all([
           getProposalTypes(),
           listInstruments(),
-          listFormTemplates({ phase: 'phase1' }),
         ]);
         setProposalTypes(types);
         setInstruments(instrumentList);
-
-        const general = templates.find((tpl) => !tpl.instrument);
-        if (general) {
-          const detail = await getFormTemplate(general.id);
-          setGeneralTemplate(detail.definition);
-        }
       } catch (err) {
         console.error(err);
         setError(err.info?.message || 'Initialization failed. Please try again later.');
@@ -588,6 +586,47 @@ export default function NewProposalPage() {
     }
     bootstrap();
   }, []);
+
+  useEffect(() => {
+    async function loadPhase1Template() {
+      if (!selectedProposalType) {
+        setGeneralTemplate(null);
+        return;
+      }
+
+      try {
+        const proposalType = proposalTypes.find(
+          (item) => String(item.id) === String(selectedProposalType)
+        );
+        if (!proposalType) {
+          setGeneralTemplate(null);
+          return;
+        }
+
+        const workflow = await getWorkflow(proposalType.workflow_id);
+        const initialTemplateId = resolvePhase1TemplateId(workflow.definition);
+        if (initialTemplateId) {
+          const detail = await getFormTemplate(initialTemplateId);
+          setGeneralTemplate(detail.definition);
+          return;
+        }
+
+        const templates = await listFormTemplates({ phase: 'phase1' });
+        const fallback = templates.find((tpl) => !tpl.instrument);
+        if (!fallback) {
+          setGeneralTemplate(null);
+          return;
+        }
+        const detail = await getFormTemplate(fallback.id);
+        setGeneralTemplate(detail.definition);
+      } catch (err) {
+        console.error(err);
+        setError(err.info?.message || 'Failed to load the proposal form for the selected workflow.');
+      }
+    }
+
+    loadPhase1Template();
+  }, [proposalTypes, selectedProposalType]);
 
   useEffect(() => {
     async function ensureInstrumentTemplate(code) {
@@ -719,31 +758,30 @@ export default function NewProposalPage() {
       return;
     }
 
-    const phase1 = phaseState.phase1 || emptyPhaseState();
-    const payload = {
-      title: phase1.meta.title || '',
-      abstract: phase1.meta.abstract || '',
-      proposal_type_id: selectedProposalType,
-      meta: phase1.meta,
-      phase_payload: {
-        phase1: {
-          status: 'submitted',
-          data: phase1.meta,
-          attachments: phase1.attachments,
-        },
-      },
-      instruments: selectedInstruments.map((code) => ({
-        instrument_code: code,
-        status: 'submitted',
-        form_data: instrumentState[code]?.form || {},
-        attachments: instrumentState[code]?.attachments || {},
-      })),
-    };
+    const payload = buildProposalCreatePayload({
+      selectedProposalType,
+      selectedInstruments,
+      phaseState,
+      instrumentState,
+    });
 
     setLoading(true);
     try {
       const result = await createProposal(payload);
-      setSuccess(`Proposal created successfully (ID: ${result.id}). The system will notify instrument teams for scheduling.`);
+      const transitions = await listProposalTransitions(result.id);
+      const submitPhase1 = (transitions.transitions || []).find(
+        (transition) => transition.name === 'submit_phase1'
+      );
+
+      let successMessage = `Proposal created successfully (ID: ${result.id}).`;
+      if (submitPhase1) {
+        const transitionResult = await triggerProposalTransition(result.id, {
+          transition: submitPhase1.name,
+        });
+        successMessage = `Proposal submitted successfully (ID: ${result.id}, state: ${transitionResult.new_state}).`;
+      }
+
+      setSuccess(successMessage);
       setTimeout(() => router.push('/dashboard'), 2000);
     } catch (err) {
       console.error(err);

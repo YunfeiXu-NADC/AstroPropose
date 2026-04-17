@@ -7,7 +7,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test:ui-regression": "python3 ../scripts/ui_regression.py"
   },
   "dependencies": {
     "@xyflow/react": "^12.0.0",
