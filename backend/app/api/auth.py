@@ -22,6 +22,9 @@ def token_required(f):
             current_user = User.query.get(data['user_id'])
         except:
             return jsonify({'message': 'Token is invalid!'}), 401
+
+        if not current_user or not current_user.is_active:
+            return jsonify({'message': 'Token is invalid!'}), 401
         
         return f(current_user, *args, **kwargs)
     return decorated
@@ -67,7 +70,11 @@ def login():
 
     user = User.query.filter_by(username=data['username']).first()
 
-    if not user or not user.check_password(data['password']):
+    if not user:
+        return jsonify({'message': 'Could not verify'}), 401
+    if not user.is_active:
+        return jsonify({'message': 'Account is disabled'}), 403
+    if not user.check_password(data['password']):
         return jsonify({'message': 'Could not verify'}), 401
 
     token = jwt.encode({
@@ -87,3 +94,19 @@ def get_current_user(current_user):
         'roles': [role.name for role in current_user.roles]
     }
     return jsonify(user_data)
+
+
+@bp.route('/change-password', methods=['POST'])
+@token_required
+def change_password(current_user):
+    data = request.get_json()
+    if not data or not data.get('old_password') or not data.get('new_password'):
+        return jsonify({'message': 'Missing old_password or new_password'}), 400
+
+    if not current_user.check_password(data['old_password']):
+        return jsonify({'message': 'Current password is incorrect'}), 400
+
+    current_user.set_password(data['new_password'])
+    db.session.commit()
+
+    return jsonify({'message': 'Password updated successfully'})
