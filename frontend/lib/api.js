@@ -70,6 +70,12 @@ function patch(path, body) {
   });
 }
 
+function del(path) {
+  return fetcher(path, {
+    method: 'DELETE',
+  });
+}
+
 // --- Auth ---
 export async function login(credentials) {
   return post('/api/auth/login', credentials);
@@ -81,6 +87,10 @@ export async function register(userData) {
 
 export async function getCurrentUser() {
   return fetcher('/api/auth/me');
+}
+
+export async function changePassword(payload) {
+  return post('/api/auth/change-password', payload);
 }
 
 // --- Proposals ---
@@ -132,6 +142,40 @@ export async function createProposalType(payload) {
 
 export async function updateProposalType(id, payload) {
   return patch(`/api/proposal-types/${id}`, payload);
+}
+
+// --- Admin Users ---
+export async function listAdminUsers() {
+  return fetcher('/api/admin/users');
+}
+
+export async function createAdminUser(payload) {
+  return post('/api/admin/users', payload);
+}
+
+export async function updateAdminUser(id, payload) {
+  return patch(`/api/admin/users/${id}`, payload);
+}
+
+export async function resetAdminUserPassword(id, payload) {
+  return post(`/api/admin/users/${id}/reset-password`, payload);
+}
+
+// --- Admin Roles ---
+export async function listAdminRoles() {
+  return fetcher('/api/admin/roles');
+}
+
+export async function createAdminRole(payload) {
+  return post('/api/admin/roles', payload);
+}
+
+export async function updateAdminRole(id, payload) {
+  return patch(`/api/admin/roles/${id}`, payload);
+}
+
+export async function deleteAdminRole(id) {
+  return del(`/api/admin/roles/${id}`);
 }
 
 // --- Form Templates ---

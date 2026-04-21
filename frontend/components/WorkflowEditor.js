@@ -13,7 +13,13 @@ import {
   Position,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { listFormTemplates, listExternalTools, getExternalTool, getFormTemplate } from '@/lib/api';
+import {
+  listFormTemplates,
+  listExternalTools,
+  listAdminRoles,
+  getExternalTool,
+  getFormTemplate,
+} from '@/lib/api';
 import { createExampleWorkflowPreset } from '@/lib/workflowPreset.mjs';
 
 // Custom state node component
@@ -81,9 +87,9 @@ const WorkflowEditor = ({ initialDefinition, onSave }) => {
   const [formTemplates, setFormTemplates] = useState([]);
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [showNodeEditor, setShowNodeEditor] = useState(false);
-  
-  // External tools state
-  const [externalTools, setExternalTools] = useState([]);
+
+  // Admin roles used for workflow transition candidates
+  const [adminRoles, setAdminRoles] = useState([]);
   const [externalToolOperations, setExternalToolOperations] = useState([]);
   
   // Edge/Transition editor state
@@ -95,11 +101,12 @@ const WorkflowEditor = ({ initialDefinition, onSave }) => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [templates, tools] = await Promise.all([
+        const [templates, tools, roles] = await Promise.all([
           listFormTemplates(),
           listExternalTools(),
+          listAdminRoles(),
         ]);
-        setExternalTools(tools);
+        setAdminRoles(Array.isArray(roles) ? roles : roles?.roles || []);
         
         // Load full form template definitions (including fields)
         const templatesWithDefinitions = await Promise.all(
@@ -360,6 +367,12 @@ const WorkflowEditor = ({ initialDefinition, onSave }) => {
 
   // Get currently selected node
   const selectedNode = nodes.find((n) => n.id === selectedNodeId);
+  const roleOptions = [
+    ...new Set([
+      ...adminRoles.map((role) => role.name),
+      ...(editingTransition?.roles || []),
+    ]),
+  ];
 
   // Update node data
   const updateNodeData = (nodeId, updates) => {
@@ -686,7 +699,7 @@ const WorkflowEditor = ({ initialDefinition, onSave }) => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Allowed Roles *</label>
                 <div className="space-y-2">
-                  {['Admin', 'Proposer', 'Instrument Scheduler', 'Panel Chair', 'Reviewer'].map((role) => (
+                  {roleOptions.map((role) => (
                     <label key={role} className="flex items-center gap-2 text-sm">
                       <input
                         type="checkbox"
