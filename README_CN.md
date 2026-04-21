@@ -219,6 +219,19 @@ src/
 4. 推送到分支
 5. 创建Pull Request
 
+## 引用
+
+如果你在科研工作或软件发布中使用 AstroPropose，请引用：
+
+```bibtex
+@article{xu2026managing,
+  title={Managing astronomical observing proposals with AstroPropose: A customizable framework applied to the Einstein Probe mission},
+  author={Xu, Yunfei and Zhang, Zhen and Mi, Linying and Hu, Jingwei and Li, Shanshan and Li, Dongyue and Jin, Chichuan and Chen, Lang and Fan, Dongwei and Li, Changhua and others},
+  journal={Astronomy and Computing},
+  pages={101080},
+}
+```
+
 ## 许可证
 
 本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。

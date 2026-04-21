@@ -248,6 +248,19 @@ FLASK_ENV=production
 4. Push to the branch
 5. Create a Pull Request
 
+## Citation
+
+If you use AstroPropose in research or software publications, please cite:
+
+```bibtex
+@article{xu2026managing,
+  title={Managing astronomical observing proposals with AstroPropose: A customizable framework applied to the Einstein Probe mission},
+  author={Xu, Yunfei and Zhang, Zhen and Mi, Linying and Hu, Jingwei and Li, Shanshan and Li, Dongyue and Jin, Chichuan and Chen, Lang and Fan, Dongwei and Li, Changhua and others},
+  journal={Astronomy and Computing},
+  pages={101080},
+}
+```
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
@@ -260,4 +273,4 @@ For questions or suggestions, please contact:
 
 ## Acknowledgments
 
-This project is based on research in astronomical proposal management systems and aims to provide a flexible, scalable solution for observatories and research institutions. 
+This project is based on research in astronomical proposal management systems and aims to provide a flexible, scalable solution for observatories and research institutions.
