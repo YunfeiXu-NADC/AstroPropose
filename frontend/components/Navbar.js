@@ -76,6 +76,12 @@ const Navbar = () => {
           )}
           {(roles.includes('Admin')) && (
             <>
+              <Link href="/admin/users" className="px-3 py-2 rounded hover:bg-gray-700">
+                Users
+              </Link>
+              <Link href="/admin/roles" className="px-3 py-2 rounded hover:bg-gray-700">
+                Roles
+              </Link>
               <Link href="/admin/instruments" className="px-3 py-2 rounded hover:bg-gray-700">
                 Instruments
               </Link>
@@ -94,13 +100,18 @@ const Navbar = () => {
             </>
           )}
           {isLoggedIn ? (
-            <button
-              onClick={handleLogout}
-              className="px-3 py-2 rounded hover:bg-gray-700 bg-red-600 hover:bg-red-700"
-              title="Click to logout"
-            >
-              Logout
-            </button>
+            <>
+              <Link href="/change-password" className="px-3 py-2 rounded hover:bg-gray-700">
+                Password
+              </Link>
+              <button
+                onClick={handleLogout}
+                className="px-3 py-2 rounded hover:bg-gray-700 bg-red-600 hover:bg-red-700"
+                title="Click to logout"
+              >
+                Logout
+              </button>
+            </>
           ) : (
             <Link href="/login" className="px-3 py-2 rounded hover:bg-gray-700">
               Login

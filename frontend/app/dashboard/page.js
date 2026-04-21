@@ -147,6 +147,21 @@ export default function Dashboard() {
 
       {error && <p className="text-red-500 bg-red-100 p-3 rounded mb-4">{error}</p>}
 
+      <section className="bg-white shadow-md rounded p-6 space-y-3">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold">Account</h2>
+            <p className="text-sm text-gray-600">{user?.email}</p>
+          </div>
+          <Link
+            href="/change-password"
+            className="inline-flex items-center justify-center bg-gray-900 hover:bg-black text-white font-medium py-2 px-4 rounded"
+          >
+            Change Password
+          </Link>
+        </div>
+      </section>
+
       <section className="bg-white shadow-md rounded p-6 space-y-4">
         <div className="flex justify-between items-center">
           <h2 className="text-xl font-semibold">My Proposals</h2>
