@@ -38,6 +38,37 @@ def test_system_role_cannot_be_renamed(client, admin_token, app):
     assert response.get_json()["message"] == "System roles cannot be renamed"
 
 
+def test_workflow_referenced_role_cannot_be_renamed(client, admin_token, app):
+    role = Role(name="Workflow Only Role", is_system=False)
+    db.session.add(role)
+
+    workflow = Workflow(name="Workflow Only Role Workflow", definition={})
+    from_state = WorkflowState(name="Draft", workflow=workflow)
+    to_state = WorkflowState(name="Submitted", workflow=workflow)
+    db.session.add_all([workflow, from_state, to_state])
+    db.session.commit()
+
+    transition = WorkflowTransition(
+        workflow_id=workflow.id,
+        name="submit",
+        from_state_id=from_state.id,
+        to_state_id=to_state.id,
+        allowed_roles=["Workflow Only Role"],
+    )
+    db.session.add(transition)
+    db.session.commit()
+
+    response = client.patch(
+        f"/api/admin/roles/{role.id}",
+        headers=_auth_headers(admin_token),
+        json={"name": "Renamed Role"},
+    )
+
+    assert response.status_code == 400
+    assert response.get_json()["message"] == "Role is assigned to users or referenced by workflow transitions"
+    assert Role.query.get(role.id).name == "Workflow Only Role"
+
+
 def test_bound_role_cannot_be_deleted(client, admin_token, app):
     role = Role(name="Bound Role", is_system=False)
     user = User(username="role-bound-user", email="role-bound@example.com", is_active=True)

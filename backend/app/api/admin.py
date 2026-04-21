@@ -178,6 +178,8 @@ def update_role(current_user, id):
         return jsonify({"message": "System roles cannot be renamed"}), 400
 
     if "name" in data and data["name"] != role.name:
+        if _workflow_reference_count(role.name) > 0:
+            return jsonify({"message": "Role is assigned to users or referenced by workflow transitions"}), 400
         existing = Role.query.filter_by(name=data["name"]).first()
         if existing and existing.id != role.id:
             return jsonify({"message": "Role already exists"}), 409
