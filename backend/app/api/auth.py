@@ -2,10 +2,15 @@ from flask import Blueprint, jsonify, request, current_app
 from app import db
 from app.models.models import User, Role
 import jwt
+import hashlib
 from datetime import datetime, timedelta
 from functools import wraps
 
 bp = Blueprint('auth', __name__)
+
+
+def _password_hash_fingerprint(password_hash):
+    return hashlib.sha256(password_hash.encode("utf-8")).hexdigest()
 
 def token_required(f):
     @wraps(f)
@@ -23,7 +28,11 @@ def token_required(f):
         except:
             return jsonify({'message': 'Token is invalid!'}), 401
 
-        if not current_user or not current_user.is_active:
+        if (
+            not current_user
+            or not current_user.is_active
+            or data.get('pwd') != _password_hash_fingerprint(current_user.password_hash)
+        ):
             return jsonify({'message': 'Token is invalid!'}), 401
         
         return f(current_user, *args, **kwargs)
@@ -79,6 +88,7 @@ def login():
 
     token = jwt.encode({
         'user_id': user.id,
+        'pwd': _password_hash_fingerprint(user.password_hash),
         'exp': datetime.utcnow() + timedelta(hours=24)
     }, current_app.config['SECRET_KEY'], algorithm="HS256")
 
