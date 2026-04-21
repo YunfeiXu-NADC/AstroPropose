@@ -50,8 +50,10 @@ def register():
     # Assign default 'Proposer' role
     proposer_role = Role.query.filter_by(name='Proposer').first()
     if not proposer_role:
-        proposer_role = Role(name='Proposer')
+        proposer_role = Role(name='Proposer', is_system=True)
         db.session.add(proposer_role)
+    else:
+        proposer_role.is_system = True
     user.roles.append(proposer_role)
 
     db.session.add(user)
