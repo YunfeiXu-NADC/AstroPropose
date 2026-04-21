@@ -22,6 +22,7 @@ class User(db.Model):
     username = db.Column(db.String(64), index=True, unique=True, nullable=False)
     email = db.Column(db.String(120), index=True, unique=True, nullable=False)
     password_hash = db.Column(db.String(256))
+    is_active = db.Column(db.Boolean, nullable=False, default=True)
     roles = db.relationship("Role", secondary=roles_users, lazy="select", backref=db.backref("users", lazy=True))
     proposals = db.relationship("Proposal", backref="author", lazy="dynamic")
     instrument_feedbacks = db.relationship("InstrumentFeedback", backref="scheduler", lazy="dynamic")
@@ -40,6 +41,7 @@ class Role(db.Model):
     __tablename__ = 'role'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(64), unique=True, nullable=False)
+    is_system = db.Column(db.Boolean, nullable=False, default=False)
 
 
 # --------------------------------------------------------------------------- #

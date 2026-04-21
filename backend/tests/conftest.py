@@ -51,10 +51,10 @@ def client(app):
 
 def seed_reference_data():
     """Create baseline roles, workflow, proposal types, instruments, and templates."""
-    proposer_role = Role(name="Proposer")
-    admin_role = Role(name="Admin")
-    scheduler_role = Role(name="Instrument Scheduler")
-    chair_role = Role(name="Panel Chair")
+    proposer_role = Role(name="Proposer", is_system=True)
+    admin_role = Role(name="Admin", is_system=True)
+    scheduler_role = Role(name="Instrument Scheduler", is_system=True)
+    chair_role = Role(name="Panel Chair", is_system=True)
     db.session.add_all([proposer_role, admin_role, scheduler_role, chair_role])
 
     workflow_definition = {
@@ -109,7 +109,7 @@ def seed_reference_data():
 @pytest.fixture
 def proposer_token(app):
     """Create a proposer account and return its authentication token."""
-    user = User(username="proposer", email="proposer@example.com")
+    user = User(username="proposer", email="proposer@example.com", is_active=True)
     user.set_password("password123")
     role = Role.query.filter_by(name="Proposer").first()
     user.roles.append(role)
@@ -127,7 +127,7 @@ def proposer_token(app):
 @pytest.fixture
 def admin_token(app):
     """Create an admin account and return its authentication token."""
-    user = User(username="admin-user", email="admin@example.com")
+    user = User(username="admin-user", email="admin@example.com", is_active=True)
     user.set_password("password123")
     role = Role.query.filter_by(name="Admin").first()
     user.roles.append(role)

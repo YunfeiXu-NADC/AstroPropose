@@ -36,11 +36,14 @@ def seed_csst_data():
         print("📋 创建角色...")
         roles = {}
         role_names = ['Admin', 'Proposer', 'Instrument Scheduler', 'Panel Chair', 'Reviewer', 'Technical Expert']
+        built_in_role_names = {'Admin', 'Proposer', 'Instrument Scheduler', 'Panel Chair'}
         for role_name in role_names:
             role = Role.query.filter_by(name=role_name).first()
             if not role:
-                role = Role(name=role_name)
+                role = Role(name=role_name, is_system=role_name in built_in_role_names)
                 db.session.add(role)
+            else:
+                role.is_system = role_name in built_in_role_names
             roles[role_name] = role
         db.session.commit()
         print(f"   ✓ 创建了 {len(roles)} 个角色")
@@ -54,48 +57,58 @@ def seed_csst_data():
         # Admin
         admin = User.query.filter_by(username='admin').first()
         if not admin:
-            admin = User(username='admin', email='admin@csst.org')
+            admin = User(username='admin', email='admin@csst.org', is_active=True)
             admin.set_password('password')
             admin.roles.append(roles['Admin'])
             db.session.add(admin)
+        else:
+            admin.is_active = True
         users['admin'] = admin
         
         # Proposer
         proposer = User.query.filter_by(username='proposer').first()
         if not proposer:
-            proposer = User(username='proposer', email='proposer@csst.org')
+            proposer = User(username='proposer', email='proposer@csst.org', is_active=True)
             proposer.set_password('password')
             proposer.roles.append(roles['Proposer'])
             db.session.add(proposer)
+        else:
+            proposer.is_active = True
         users['proposer'] = proposer
         
         # Technical Expert
         tech_expert = User.query.filter_by(username='tech_expert').first()
         if not tech_expert:
-            tech_expert = User(username='tech_expert', email='tech_expert@csst.org')
+            tech_expert = User(username='tech_expert', email='tech_expert@csst.org', is_active=True)
             tech_expert.set_password('password')
             tech_expert.roles.append(roles['Technical Expert'])
             tech_expert.roles.append(roles['Instrument Scheduler'])
             db.session.add(tech_expert)
+        else:
+            tech_expert.is_active = True
         users['tech_expert'] = tech_expert
         
         # Reviewer
         reviewer = User.query.filter_by(username='reviewer').first()
         if not reviewer:
-            reviewer = User(username='reviewer', email='reviewer@csst.org')
+            reviewer = User(username='reviewer', email='reviewer@csst.org', is_active=True)
             reviewer.set_password('password')
             reviewer.roles.append(roles['Reviewer'])
             db.session.add(reviewer)
+        else:
+            reviewer.is_active = True
         users['reviewer'] = reviewer
         
         # Panel Chair
         chair = User.query.filter_by(username='chair').first()
         if not chair:
-            chair = User(username='chair', email='chair@csst.org')
+            chair = User(username='chair', email='chair@csst.org', is_active=True)
             chair.set_password('password')
             chair.roles.append(roles['Panel Chair'])
             chair.roles.append(roles['Admin'])
             db.session.add(chair)
+        else:
+            chair.is_active = True
         users['chair'] = chair
         
         db.session.commit()
@@ -976,4 +989,3 @@ def seed_csst_data():
 
 if __name__ == '__main__':
     seed_csst_data()
-
