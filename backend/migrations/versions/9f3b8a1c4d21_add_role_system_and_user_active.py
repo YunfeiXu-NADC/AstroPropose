@@ -29,7 +29,7 @@ def upgrade():
 
     op.execute(
         sa.text(
-            "UPDATE role SET is_system = 1 "
+            "UPDATE role SET is_system = TRUE "
             "WHERE name IN ('Admin', 'Proposer', 'Panel Chair', 'Instrument Scheduler')"
         )
     )

@@ -1,4 +1,5 @@
 import importlib
+from contextlib import contextmanager
 
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
@@ -91,3 +92,23 @@ def test_task1_migration_backfills_sqlite_legacy_auth_data(tmp_path):
     assert role_flags["Proposer"] == 1
     assert role_flags["Reviewer"] == 0
     assert legacy_user_active == 1
+
+
+def test_task1_migration_uses_postgres_compatible_boolean_backfill(monkeypatch):
+    captured_statements = []
+
+    @contextmanager
+    def fake_batch_alter_table(*args, **kwargs):
+        class FakeBatchOperation:
+            def add_column(self, column):
+                return None
+
+        yield FakeBatchOperation()
+
+    monkeypatch.setattr(task1_migration.op, "batch_alter_table", fake_batch_alter_table)
+    monkeypatch.setattr(task1_migration.op, "execute", captured_statements.append)
+
+    task1_migration.upgrade()
+
+    assert captured_statements, "expected migration to execute a role backfill statement"
+    assert "SET is_system = TRUE" in str(captured_statements[0])
