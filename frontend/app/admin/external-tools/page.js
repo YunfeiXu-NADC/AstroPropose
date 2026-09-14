@@ -14,11 +14,13 @@ import {
 } from '@/lib/api';
 
 const AUTH_TYPES = [
-  { value: 'none', label: 'No Authentication' },
-  { value: 'api_key', label: 'API Key' },
-  { value: 'bearer', label: 'Bearer Token' },
-  { value: 'basic', label: 'Basic Auth' },
+  { value: 'none', label: '无需认证' },
+  { value: 'api_key', label: '接口密钥' },
+  { value: 'bearer', label: '访问令牌' },
+  { value: 'basic', label: '账号密码' },
 ];
+
+const AUTH_TYPE_LABELS = Object.fromEntries(AUTH_TYPES.map(({ value, label }) => [value, label]));
 
 export default function ExternalToolsPage() {
   const router = useRouter();
@@ -64,7 +66,7 @@ export default function ExternalToolsPage() {
       block_on_failure: true,
       block_on_service_error: false,
       failure_conditions: [],
-      error_message_template: 'Validation failed',
+      error_message_template: '校验失败',
     },
   });
 
@@ -100,7 +102,7 @@ export default function ExternalToolsPage() {
 
     try {
       await createExternalTool(newTool);
-      setSuccess('Tool registered successfully!');
+      setSuccess('外部工具注册成功');
       setShowNewToolForm(false);
       setNewTool({
         name: '',
@@ -120,7 +122,7 @@ export default function ExternalToolsPage() {
     try {
       setError('');
       const result = await refreshExternalToolSpec(toolId);
-      setSuccess(`Spec refreshed! ${result.operations_imported} operations imported.`);
+      setSuccess(`规范已刷新，已导入 ${result.operations_imported} 个操作`);
       fetchToolDetails(toolId);
     } catch (err) {
       setError(err.message);
@@ -150,7 +152,7 @@ export default function ExternalToolsPage() {
 
     try {
       await createToolOperation(selectedTool.id, newOperation);
-      setSuccess('Operation created successfully!');
+      setSuccess('操作创建成功');
       setShowNewOperationForm(false);
       setNewOperation({
         operation_id: '',
@@ -170,7 +172,7 @@ export default function ExternalToolsPage() {
           block_on_failure: true,
           block_on_service_error: false,
           failure_conditions: [],
-          error_message_template: 'Validation failed',
+          error_message_template: '校验失败',
         },
       });
       fetchToolDetails(selectedTool.id);
@@ -180,7 +182,7 @@ export default function ExternalToolsPage() {
   };
 
   if (loading) {
-    return <div className="p-8 text-center">Loading external tools...</div>;
+    return <div className="p-8 text-center">正在加载外部工具…</div>;
   }
 
   return (
@@ -188,16 +190,16 @@ export default function ExternalToolsPage() {
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">External Tools</h1>
+            <h1 className="text-3xl font-bold text-gray-900">外部工具</h1>
             <p className="text-gray-600 mt-1">
-              Register and manage external API integrations for workflow automation
+              注册并管理流程自动化所需的外部接口
             </p>
           </div>
           <button
             onClick={() => setShowNewToolForm(true)}
             className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
           >
-            + Register New Tool
+            + 注册外部工具
           </button>
         </div>
 
@@ -216,34 +218,34 @@ export default function ExternalToolsPage() {
         {showNewToolForm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-              <h2 className="text-xl font-bold mb-4">Register External Tool</h2>
+              <h2 className="text-xl font-bold mb-4">注册外部工具</h2>
               
               <form onSubmit={handleCreateTool} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Tool Name *</label>
+                  <label className="block text-sm font-medium text-gray-700">工具名称 *</label>
                   <input
                     type="text"
                     required
                     value={newTool.name}
                     onChange={(e) => setNewTool({ ...newTool, name: e.target.value })}
                     className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-                    placeholder="e.g., TAC Notification Service"
+                    placeholder="例如：提案通知服务"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Description</label>
+                  <label className="block text-sm font-medium text-gray-700">说明</label>
                   <textarea
                     value={newTool.description}
                     onChange={(e) => setNewTool({ ...newTool, description: e.target.value })}
                     className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                     rows={2}
-                    placeholder="Brief description of what this tool does"
+                    placeholder="简要说明这个工具的用途"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Base URL *</label>
+                  <label className="block text-sm font-medium text-gray-700">服务地址 *</label>
                   <input
                     type="url"
                     required
@@ -256,7 +258,7 @@ export default function ExternalToolsPage() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700">
-                    OpenAPI Spec URL (optional)
+                    OpenAPI 规范地址（可选）
                   </label>
                   <input
                     type="url"
@@ -266,13 +268,12 @@ export default function ExternalToolsPage() {
                     placeholder="https://api.example.com/openapi.json"
                   />
                   <p className="mt-1 text-xs text-gray-500">
-                    If provided, operations will be automatically imported from the spec. 
-                    You can also manually add operations after registering the tool.
+                    填写后将自动从规范中导入操作；注册工具后也可手动添加。
                   </p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Authentication Type</label>
+                  <label className="block text-sm font-medium text-gray-700">认证方式</label>
                   <select
                     value={newTool.auth_type}
                     onChange={(e) => setNewTool({ ...newTool, auth_type: e.target.value, auth_config: {} })}
@@ -288,7 +289,7 @@ export default function ExternalToolsPage() {
 
                 {newTool.auth_type === 'bearer' && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Bearer Token</label>
+                    <label className="block text-sm font-medium text-gray-700">访问令牌</label>
                     <input
                       type="password"
                       value={newTool.auth_config.token || ''}
@@ -299,7 +300,7 @@ export default function ExternalToolsPage() {
                         })
                       }
                       className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg"
-                      placeholder="Enter bearer token"
+                      placeholder="请输入访问令牌"
                     />
                   </div>
                 )}
@@ -307,7 +308,7 @@ export default function ExternalToolsPage() {
                 {newTool.auth_type === 'api_key' && (
                   <>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Header Name</label>
+                      <label className="block text-sm font-medium text-gray-700">请求头名称</label>
                       <input
                         type="text"
                         value={newTool.auth_config.key_name || 'X-API-Key'}
@@ -321,7 +322,7 @@ export default function ExternalToolsPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">API Key</label>
+                      <label className="block text-sm font-medium text-gray-700">接口密钥</label>
                       <input
                         type="password"
                         value={newTool.auth_config.key_value || ''}
@@ -340,7 +341,7 @@ export default function ExternalToolsPage() {
                 {newTool.auth_type === 'basic' && (
                   <>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Username</label>
+                      <label className="block text-sm font-medium text-gray-700">用户名</label>
                       <input
                         type="text"
                         value={newTool.auth_config.username || ''}
@@ -354,7 +355,7 @@ export default function ExternalToolsPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Password</label>
+                      <label className="block text-sm font-medium text-gray-700">密码</label>
                       <input
                         type="password"
                         value={newTool.auth_config.password || ''}
@@ -376,13 +377,13 @@ export default function ExternalToolsPage() {
                     onClick={() => setShowNewToolForm(false)}
                     className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
                   >
-                    Cancel
+                    取消
                   </button>
                   <button
                     type="submit"
                     className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
                   >
-                    Register Tool
+                    注册工具
                   </button>
                 </div>
               </form>
@@ -401,18 +402,18 @@ export default function ExternalToolsPage() {
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">{tool.name}</h3>
-                  <p className="text-sm text-gray-500 mt-1">{tool.description || 'No description'}</p>
+                  <p className="text-sm text-gray-500 mt-1">{tool.description || '暂无说明'}</p>
                 </div>
                 <span className="px-2 py-1 text-xs bg-indigo-100 text-indigo-800 rounded">
-                  {tool.auth_type}
+                  {AUTH_TYPE_LABELS[tool.auth_type] || tool.auth_type}
                 </span>
               </div>
               <div className="mt-4 text-sm text-gray-600">
                 <p className="truncate">
-                  <span className="font-medium">Base URL:</span> {tool.base_url}
+                  <span className="font-medium">服务地址：</span> {tool.base_url}
                 </p>
                 <p className="mt-1">
-                  <span className="font-medium">Operations:</span> {tool.operations_count}
+                  <span className="font-medium">操作数：</span> {tool.operations_count}
                 </p>
               </div>
             </div>
@@ -420,7 +421,7 @@ export default function ExternalToolsPage() {
 
           {tools.length === 0 && (
             <div className="col-span-full text-center py-12 text-gray-500">
-              No external tools registered yet. Click "Register New Tool" to add one.
+              暂未注册外部工具，请点击“注册外部工具”添加。
             </div>
           )}
         </div>
@@ -446,26 +447,26 @@ export default function ExternalToolsPage() {
                 <div className="mb-6 p-4 bg-blue-50 rounded-lg">
                   <div className="flex justify-between items-center">
                     <div>
-                      <p className="text-sm font-medium text-blue-800">OpenAPI Spec</p>
+                      <p className="text-sm font-medium text-blue-800">OpenAPI 规范</p>
                       <p className="text-xs text-blue-600 truncate">{selectedTool.openapi_spec_url}</p>
                     </div>
                     <button
                       onClick={() => handleRefreshSpec(selectedTool.id)}
                       className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
                     >
-                      Refresh Spec
+                      刷新规范
                     </button>
                   </div>
                 </div>
               )}
 
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">Operations ({selectedTool.operations?.length || 0})</h3>
+                <h3 className="text-lg font-semibold">操作（{selectedTool.operations?.length || 0}）</h3>
                 <button
                   onClick={() => setShowNewOperationForm(true)}
                   className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
                 >
-                  + Add Operation
+                  + 添加操作
                 </button>
               </div>
               
@@ -496,17 +497,17 @@ export default function ExternalToolsPage() {
                           onClick={() => handleTestOperation(op)}
                           className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50"
                         >
-                          Test
+                          测试
                         </button>
                         <span className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded">
-                          ID: {op.id}
+                          编号：{op.id}
                         </span>
                       </div>
                     </div>
 
                     {op.input_mapping && Object.keys(op.input_mapping).length > 0 && (
                       <div className="mt-3 p-2 bg-gray-50 rounded text-xs">
-                        <span className="font-medium">Input Mapping:</span>
+                        <span className="font-medium">输入映射：</span>
                         <pre className="mt-1 overflow-x-auto">
                           {JSON.stringify(op.input_mapping, null, 2)}
                         </pre>
@@ -517,20 +518,20 @@ export default function ExternalToolsPage() {
 
                 {selectedTool.operations?.length === 0 && (
                   <div className="text-center py-8 border-2 border-dashed border-gray-300 rounded-lg">
-                    <p className="text-gray-500 mb-2">No operations defined yet.</p>
+                    <p className="text-gray-500 mb-2">暂未定义操作。</p>
                     <p className="text-sm text-gray-400">
                       {selectedTool.openapi_spec_url
-                        ? 'Click "Refresh Spec" to import from OpenAPI, or "Add Operation" to create manually.'
-                        : 'Click "Add Operation" to manually configure an API endpoint.'}
+                        ? '点击“刷新规范”从 OpenAPI 导入，或点击“添加操作”手动创建。'
+                        : '点击“添加操作”手动配置接口。'}
                     </p>
                   </div>
                 )}
               </div>
 
               <div className="mt-6 p-4 bg-yellow-50 rounded-lg">
-                <h4 className="font-medium text-yellow-800">Usage in Workflow</h4>
+                <h4 className="font-medium text-yellow-800">在流程中使用</h4>
                 <p className="text-sm text-yellow-700 mt-1">
-                  To use an operation in a workflow transition, add it to the transition's "effects" configuration:
+                  如需在流程流转时调用该操作，请将其添加到流转规则的“执行效果”配置中：
                 </p>
                 <pre className="mt-2 p-2 bg-white rounded text-xs overflow-x-auto">
 {`"effects": {
@@ -552,7 +553,7 @@ export default function ExternalToolsPage() {
         {testingOperation && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-              <h2 className="text-xl font-bold mb-4">Test Operation: {testingOperation.name}</h2>
+              <h2 className="text-xl font-bold mb-4">测试操作：{testingOperation.name}</h2>
               <p className="text-sm text-gray-600 mb-4">
                 <span className="font-mono bg-gray-100 px-2 py-0.5 rounded">
                   {testingOperation.method} {testingOperation.path}
@@ -561,7 +562,7 @@ export default function ExternalToolsPage() {
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Test Parameters (JSON)</label>
+                  <label className="block text-sm font-medium text-gray-700">测试参数（JSON）</label>
                   <textarea
                     value={JSON.stringify(testParams, null, 2)}
                     onChange={(e) => {
@@ -582,10 +583,10 @@ export default function ExternalToolsPage() {
                 {testResult && (
                   <div className={`p-4 rounded-lg ${testResult.success ? 'bg-green-50' : 'bg-red-50'}`}>
                     <h4 className={`font-medium ${testResult.success ? 'text-green-800' : 'text-red-800'}`}>
-                      {testResult.success ? '✓ Success' : '✕ Failed'}
+                      {testResult.success ? '✓ 测试成功' : '✕ 测试失败'}
                     </h4>
                     {testResult.status_code && (
-                      <p className="text-sm mt-1">Status: {testResult.status_code}</p>
+                      <p className="text-sm mt-1">状态码：{testResult.status_code}</p>
                     )}
                     {testResult.error && (
                       <p className="text-sm text-red-600 mt-1">{testResult.error}</p>
@@ -607,13 +608,13 @@ export default function ExternalToolsPage() {
                   }}
                   className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
                 >
-                  Close
+                  关闭
                 </button>
                 <button
                   onClick={executeTest}
                   className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
                 >
-                  Execute Test
+                  执行测试
                 </button>
               </div>
             </div>
@@ -624,50 +625,50 @@ export default function ExternalToolsPage() {
         {showNewOperationForm && selectedTool && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-              <h2 className="text-xl font-bold mb-4">Add New Operation</h2>
+              <h2 className="text-xl font-bold mb-4">添加操作</h2>
               
               <form onSubmit={handleCreateOperation} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Operation ID *</label>
+                    <label className="block text-sm font-medium text-gray-700">操作标识 *</label>
                     <input
                       type="text"
                       required
                       value={newOperation.operation_id}
                       onChange={(e) => setNewOperation({ ...newOperation, operation_id: e.target.value })}
                       className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-                      placeholder="e.g., createNotification"
+                      placeholder="例如：createNotification"
                     />
-                    <p className="mt-1 text-xs text-gray-500">Unique identifier for this operation</p>
+                    <p className="mt-1 text-xs text-gray-500">用于在流程中唯一识别该操作</p>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Name *</label>
+                    <label className="block text-sm font-medium text-gray-700">名称 *</label>
                     <input
                       type="text"
                       required
                       value={newOperation.name}
                       onChange={(e) => setNewOperation({ ...newOperation, name: e.target.value })}
                       className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-                      placeholder="e.g., Create Notification"
+                      placeholder="例如：创建通知"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Description</label>
+                  <label className="block text-sm font-medium text-gray-700">说明</label>
                   <textarea
                     value={newOperation.description}
                     onChange={(e) => setNewOperation({ ...newOperation, description: e.target.value })}
                     className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                     rows={2}
-                    placeholder="Brief description of what this operation does"
+                    placeholder="简要说明该操作的用途"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">HTTP Method *</label>
+                    <label className="block text-sm font-medium text-gray-700">HTTP 方法 *</label>
                     <select
                       required
                       value={newOperation.method}
@@ -683,7 +684,7 @@ export default function ExternalToolsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Path *</label>
+                    <label className="block text-sm font-medium text-gray-700">接口路径 *</label>
                     <input
                       type="text"
                       required
@@ -692,12 +693,12 @@ export default function ExternalToolsPage() {
                       className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 font-mono text-sm"
                       placeholder="/api/notifications"
                     />
-                    <p className="mt-1 text-xs text-gray-500">Use {'{param}'} for path parameters, e.g., /api/users/{'{id}'}</p>
+                    <p className="mt-1 text-xs text-gray-500">路径参数使用 {'{param}'}，例如 /api/users/{'{id}'}</p>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Tool Type *</label>
+                  <label className="block text-sm font-medium text-gray-700">工具类型 *</label>
                   <select
                     required
                     value={newOperation.tool_type}
@@ -711,25 +712,25 @@ export default function ExternalToolsPage() {
                           block_on_failure: true,
                           block_on_service_error: false,
                           failure_conditions: [],
-                          error_message_template: 'Validation failed',
+                          error_message_template: '校验失败',
                         } : newOperation.validation_config,
                       });
                     }}
                     className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
                   >
-                    <option value="other">Other</option>
-                    <option value="validation">Validation (e.g., visibility check)</option>
-                    <option value="notification">Notification</option>
-                    <option value="data_processing">Data Processing</option>
+                    <option value="other">其他</option>
+                    <option value="validation">校验（例如可见性检查）</option>
+                    <option value="notification">通知</option>
+                    <option value="data_processing">数据处理</option>
                   </select>
                   <p className="mt-1 text-xs text-gray-500">
-                    Validation tools can block workflow transitions if checks fail (e.g., target not visible)
+                    校验不通过时可阻止流程继续流转，例如目标不可见。
                   </p>
                 </div>
 
                 {newOperation.tool_type === 'validation' && (
                   <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <h4 className="text-sm font-semibold text-blue-900 mb-3">Validation Configuration</h4>
+                    <h4 className="text-sm font-semibold text-blue-900 mb-3">校验配置</h4>
                     
                     <div className="space-y-3">
                       <div className="flex items-center">
@@ -746,7 +747,7 @@ export default function ExternalToolsPage() {
                           className="mr-2"
                         />
                         <label className="text-sm text-gray-700">
-                          Block workflow transition if validation fails
+                          校验失败时阻止流程流转
                         </label>
                       </div>
 
@@ -764,16 +765,16 @@ export default function ExternalToolsPage() {
                           className="mr-2"
                         />
                         <label className="text-sm text-gray-700">
-                          Block workflow transition if service is unavailable
+                          服务不可用时阻止流程流转
                         </label>
                       </div>
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Failure Conditions (JSON)
+                          失败条件（JSON）
                         </label>
                         <p className="text-xs text-gray-500 mb-1">
-                          Define when validation fails. Example: {'[{"path": "response.visible", "operator": "==", "value": false}]'}
+                          定义判定校验失败的条件，例如：{'[{"path": "response.visible", "operator": "==", "value": false}]'}
                         </p>
                         <textarea
                           value={JSON.stringify(newOperation.validation_config.failure_conditions, null, 2)}
@@ -797,10 +798,10 @@ export default function ExternalToolsPage() {
 
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Error Message Template
+                          错误消息模板
                         </label>
                         <p className="text-xs text-gray-500 mb-1">
-                          Use {'{response.field}'} to reference response fields
+                          使用 {'{response.field}'} 引用响应字段
                         </p>
                         <input
                           type="text"
@@ -813,7 +814,7 @@ export default function ExternalToolsPage() {
                             },
                           })}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
-                          placeholder="Target is not visible: {response.reason}"
+                          placeholder="目标不可见：{response.reason}"
                         />
                       </div>
                     </div>
@@ -821,9 +822,9 @@ export default function ExternalToolsPage() {
                 )}
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Parameters (JSON)</label>
+                  <label className="block text-sm font-medium text-gray-700">请求参数（JSON）</label>
                   <p className="text-xs text-gray-500 mb-1">
-                    Define query, path, and header parameters. Format: {'{"query": [{"name": "param", "required": true, "schema": {"type": "string"}}], "path": [], "header": []}'}
+                    定义查询、路径和请求头参数，格式：{'{"query": [{"name": "param", "required": true, "schema": {"type": "string"}}], "path": [], "header": []}'}
                   </p>
                   <textarea
                     value={JSON.stringify(newOperation.parameters, null, 2)}
@@ -839,9 +840,9 @@ export default function ExternalToolsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Request Body Schema (JSON)</label>
+                  <label className="block text-sm font-medium text-gray-700">请求体结构（JSON）</label>
                   <p className="text-xs text-gray-500 mb-1">
-                    JSON Schema for request body. Leave empty for GET/DELETE requests.
+                    请求体的 JSON 结构；GET/DELETE 请求可留空。
                   </p>
                   <textarea
                     value={JSON.stringify(newOperation.request_body, null, 2)}
@@ -857,9 +858,9 @@ export default function ExternalToolsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Input Mapping (JSON, optional)</label>
+                  <label className="block text-sm font-medium text-gray-700">输入映射（JSON，可选）</label>
                   <p className="text-xs text-gray-500 mb-1">
-                    Map proposal/context data to request parameters. Format: {'{"body.message": "context.notification_message", "query.proposal_id": "proposal.id"}'}
+                    将提案或上下文数据映射到请求参数，格式：{'{"body.message": "context.notification_message", "query.proposal_id": "proposal.id"}'}
                   </p>
                   <textarea
                     value={JSON.stringify(newOperation.input_mapping, null, 2)}
@@ -875,9 +876,9 @@ export default function ExternalToolsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Output Mapping (JSON, optional)</label>
+                  <label className="block text-sm font-medium text-gray-700">输出映射（JSON，可选）</label>
                   <p className="text-xs text-gray-500 mb-1">
-                    Map response data back to proposal context. Format: {'{"context.last_notification_id": "response.id"}'}
+                    将响应数据写回提案上下文，格式：{'{"context.last_notification_id": "response.id"}'}
                   </p>
                   <textarea
                     value={JSON.stringify(newOperation.output_mapping, null, 2)}
@@ -894,7 +895,7 @@ export default function ExternalToolsPage() {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Timeout (seconds)</label>
+                    <label className="block text-sm font-medium text-gray-700">超时时间（秒）</label>
                     <input
                       type="number"
                       min="1"
@@ -905,7 +906,7 @@ export default function ExternalToolsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700">Response Schema (JSON, optional)</label>
+                    <label className="block text-sm font-medium text-gray-700">响应结构（JSON，可选）</label>
                     <textarea
                       value={JSON.stringify(newOperation.response_schema, null, 2)}
                       onChange={(e) => {
@@ -943,19 +944,19 @@ export default function ExternalToolsPage() {
                           block_on_failure: true,
                           block_on_service_error: false,
                           failure_conditions: [],
-                          error_message_template: 'Validation failed',
+                          error_message_template: '校验失败',
                         },
                       });
                     }}
                     className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
                   >
-                    Cancel
+                    取消
                   </button>
                   <button
                     type="submit"
                     className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
                   >
-                    Create Operation
+                    创建操作
                   </button>
                 </div>
               </form>
@@ -966,6 +967,3 @@ export default function ExternalToolsPage() {
     </div>
   );
 }
-
-
-

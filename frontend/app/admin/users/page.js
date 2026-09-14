@@ -10,6 +10,7 @@ import {
   resetAdminUserPassword,
   updateAdminUser,
 } from '@/lib/api';
+import { formatRoles, translateRole } from '@/lib/locale.mjs';
 
 function RoleChecklist({ roles, selectedRoleIds, onToggle, disabled = false }) {
   return (
@@ -28,8 +29,8 @@ function RoleChecklist({ roles, selectedRoleIds, onToggle, disabled = false }) {
             disabled={disabled}
           />
           <span className="text-sm">
-            {role.name}
-            {role.is_system ? ' (system)' : ''}
+            {translateRole(role.name)}
+            {role.is_system ? '（系统内置）' : ''}
           </span>
         </label>
       ))}
@@ -105,7 +106,7 @@ export default function UsersPage() {
       }
     } catch (err) {
       console.error(err);
-      setError(err.info?.message || 'Failed to load users and roles');
+      setError(err.info?.message || '用户与角色加载失败');
     } finally {
       setIsLoading(false);
     }
@@ -121,7 +122,7 @@ export default function UsersPage() {
     setSuccess('');
 
     if (!newUsername.trim() || !newEmail.trim() || !newPassword.trim()) {
-      setError('Username, email, and password are required');
+      setError('用户名、邮箱和密码均为必填项');
       return;
     }
 
@@ -133,7 +134,7 @@ export default function UsersPage() {
         role_ids: newRoleIds,
         is_active: newIsActive,
       });
-      setSuccess(`User "${newUsername.trim()}" created successfully`);
+      setSuccess(`用户“${newUsername.trim()}”创建成功`);
       setNewUsername('');
       setNewEmail('');
       setNewPassword('');
@@ -143,7 +144,7 @@ export default function UsersPage() {
       await fetchData();
     } catch (err) {
       console.error(err);
-      setError(err.info?.message || 'Failed to create user');
+      setError(err.info?.message || '用户创建失败');
     }
   };
 
@@ -162,11 +163,11 @@ export default function UsersPage() {
         role_ids: editRoleIds,
         is_active: editIsActive,
       });
-      setSuccess(`User "${selectedUser.username}" updated successfully`);
+      setSuccess(`用户“${selectedUser.username}”更新成功`);
       await fetchData(selectedUser.id);
     } catch (err) {
       console.error(err);
-      setError(err.info?.message || 'Failed to update user');
+      setError(err.info?.message || '用户更新失败');
     }
   };
 
@@ -180,7 +181,7 @@ export default function UsersPage() {
     setSuccess('');
 
     if (!resetPassword.trim()) {
-      setError('Please enter a new password before resetting');
+      setError('请输入新密码后再重置');
       return;
     }
 
@@ -188,11 +189,11 @@ export default function UsersPage() {
       await resetAdminUserPassword(selectedUser.id, {
         new_password: resetPassword,
       });
-      setSuccess(`Password reset for "${selectedUser.username}" completed`);
+      setSuccess(`用户“${selectedUser.username}”的密码已重置`);
       setResetPassword('');
     } catch (err) {
       console.error(err);
-      setError(err.info?.message || 'Failed to reset password');
+      setError(err.info?.message || '密码重置失败');
     }
   };
 
@@ -200,30 +201,32 @@ export default function UsersPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">User Management</h1>
-          <p className="text-sm text-gray-600">
-            Create users, assign roles, disable accounts, and reset passwords.
-          </p>
+          <h1 className="text-3xl font-bold">用户管理</h1>
+          <p className="text-sm text-gray-600">创建用户、分配角色、停用账户和重置密码。</p>
         </div>
         <button
           type="button"
           onClick={() => setShowCreateForm((value) => !value)}
           className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
         >
-          {showCreateForm ? 'Cancel' : '+ Add User'}
+          {showCreateForm ? '取消' : '+ 添加用户'}
         </button>
       </div>
+
+      <p className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+        用户密码采用不可逆加密保存，管理员无法查看原密码；忘记密码时只能为用户设置新密码。
+      </p>
 
       {error && <p className="text-red-500 bg-red-100 p-3 rounded">{error}</p>}
       {success && <p className="text-green-600 bg-green-100 p-3 rounded">{success}</p>}
 
       {showCreateForm && (
         <section className="bg-white shadow-md rounded-lg p-6 space-y-4">
-          <h2 className="text-xl font-semibold">Create User</h2>
+          <h2 className="text-xl font-semibold">创建用户</h2>
           <form onSubmit={handleCreateUser} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Username *</label>
+                <label className="block text-sm font-medium text-gray-700">用户名 *</label>
                 <input
                   type="text"
                   required
@@ -233,7 +236,7 @@ export default function UsersPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Email *</label>
+                <label className="block text-sm font-medium text-gray-700">邮箱 *</label>
                 <input
                   type="email"
                   required
@@ -246,7 +249,7 @@ export default function UsersPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Temporary Password *</label>
+                <label className="block text-sm font-medium text-gray-700">临时密码 *</label>
                 <input
                   type="password"
                   required
@@ -261,19 +264,19 @@ export default function UsersPage() {
                   checked={newIsActive}
                   onChange={(event) => setNewIsActive(event.target.checked)}
                 />
-                Active account
+                启用账户
               </label>
             </div>
 
             <div>
-              <p className="block text-sm font-medium text-gray-700 mb-2">Roles</p>
+              <p className="block text-sm font-medium text-gray-700 mb-2">角色</p>
               <RoleChecklist
                 roles={roles}
                 selectedRoleIds={newRoleIds}
                 onToggle={(roleId) => toggleRole(newRoleIds, roleId, setNewRoleIds)}
               />
               <p className="mt-2 text-xs text-gray-500">
-                If you leave this empty, the backend will assign the default proposer role when available.
+                若不选择角色，系统将在可用时自动分配默认提案者角色。
               </p>
             </div>
 
@@ -281,7 +284,7 @@ export default function UsersPage() {
               type="submit"
               className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
             >
-              Create User
+              创建用户
             </button>
           </form>
         </section>
@@ -289,25 +292,25 @@ export default function UsersPage() {
 
       <section className="bg-white shadow-md rounded-lg overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-xl font-semibold">Users</h2>
+          <h2 className="text-xl font-semibold">用户列表</h2>
         </div>
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Username
+                用户名
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Email
+                邮箱
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Roles
+                角色
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Status
+                状态
               </th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
+                操作
               </th>
             </tr>
           </thead>
@@ -315,13 +318,13 @@ export default function UsersPage() {
             {isLoading ? (
               <tr>
                 <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
-                  Loading...
+                  正在加载…
                 </td>
               </tr>
             ) : users.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
-                  No users found.
+                  暂无用户。
                 </td>
               </tr>
             ) : (
@@ -333,11 +336,11 @@ export default function UsersPage() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {user.username}
                     {currentUserId === user.id ? (
-                      <span className="ml-2 text-xs text-indigo-600">(you)</span>
+                      <span className="ml-2 text-xs text-indigo-600">（当前用户）</span>
                     ) : null}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-700">{user.email}</td>
-                  <td className="px-6 py-4 text-sm text-gray-700">{user.roles.join(', ') || 'No roles'}</td>
+                  <td className="px-6 py-4 text-sm text-gray-700">{formatRoles(user.roles) || '未分配角色'}</td>
                   <td className="px-6 py-4">
                     <span
                       className={`inline-flex px-2 py-1 text-xs rounded-full ${
@@ -346,7 +349,7 @@ export default function UsersPage() {
                           : 'bg-gray-200 text-gray-700'
                       }`}
                     >
-                      {user.is_active ? 'Active' : 'Disabled'}
+                      {user.is_active ? '已启用' : '已停用'}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
@@ -355,7 +358,7 @@ export default function UsersPage() {
                       onClick={() => startEditingUser(user)}
                       className="text-sm text-indigo-600 hover:text-indigo-800"
                     >
-                      Manage
+                      管理
                     </button>
                   </td>
                 </tr>
@@ -370,16 +373,16 @@ export default function UsersPage() {
           <form onSubmit={handleUpdateUser} className="xl:col-span-2 bg-white shadow-md rounded-lg p-6 space-y-4">
             <div className="flex justify-between items-center">
               <div>
-                <h2 className="text-xl font-semibold">Edit User</h2>
+                <h2 className="text-xl font-semibold">编辑用户</h2>
                 <p className="text-sm text-gray-500">
-                  Username is fixed after creation. Email, roles, and status can be updated here.
+                  用户名创建后不可修改，可在此更新邮箱、角色和状态。
                 </p>
               </div>
               <span className="text-sm font-medium text-gray-500">{selectedUser.username}</span>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">Email</label>
+              <label className="block text-sm font-medium text-gray-700">邮箱</label>
               <input
                 type="email"
                 required
@@ -396,14 +399,14 @@ export default function UsersPage() {
                 disabled={selectedUser.id === currentUserId}
                 onChange={(event) => setEditIsActive(event.target.checked)}
               />
-              Active account
+              启用账户
               {selectedUser.id === currentUserId ? (
-                <span className="text-xs text-gray-500">You cannot disable your own account.</span>
+                <span className="text-xs text-gray-500">不能停用当前登录账户。</span>
               ) : null}
             </label>
 
             <div>
-              <p className="block text-sm font-medium text-gray-700 mb-2">Roles</p>
+              <p className="block text-sm font-medium text-gray-700 mb-2">角色</p>
               <RoleChecklist
                 roles={roles}
                 selectedRoleIds={editRoleIds}
@@ -415,20 +418,20 @@ export default function UsersPage() {
               type="submit"
               className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
             >
-              Save Changes
+              保存修改
             </button>
           </form>
 
           <form onSubmit={handleResetPassword} className="bg-white shadow-md rounded-lg p-6 space-y-4">
             <div>
-              <h2 className="text-xl font-semibold">Reset Password</h2>
+              <h2 className="text-xl font-semibold">重置密码</h2>
               <p className="text-sm text-gray-500">
-                Set a new password for {selectedUser.username}. The old password will stop working immediately.
+                为 {selectedUser.username} 设置新密码，原密码将立即失效。
               </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700">New Password</label>
+              <label className="block text-sm font-medium text-gray-700">新密码</label>
               <input
                 type="password"
                 value={resetPassword}
@@ -441,7 +444,7 @@ export default function UsersPage() {
               type="submit"
               className="w-full px-4 py-2 bg-amber-600 text-white rounded hover:bg-amber-700"
             >
-              Reset Password
+              重置密码
             </button>
           </form>
         </section>

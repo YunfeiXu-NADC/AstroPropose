@@ -42,7 +42,7 @@ export default function ProposalTypesPage() {
       setWorkflows(workflowList);
     } catch (err) {
       console.error(err);
-      setError(err.info?.message || 'Failed to load proposal types');
+      setError(err.info?.message || '提案类型加载失败');
     } finally {
       setLoading(false);
     }
@@ -58,7 +58,7 @@ export default function ProposalTypesPage() {
     setSuccess('');
 
     if (!newType.name.trim() || !newType.workflow_id) {
-      setError('Proposal type name and workflow are required');
+      setError('提案类型名称和关联流程不能为空');
       return;
     }
 
@@ -68,13 +68,13 @@ export default function ProposalTypesPage() {
         description: newType.description,
         workflow_id: Number(newType.workflow_id),
       });
-      setSuccess(`Published proposal type "${newType.name.trim()}"`);
+      setSuccess(`提案类型“${newType.name.trim()}”发布成功`);
       setNewType({ name: '', description: '', workflow_id: '' });
       setShowCreateForm(false);
       await refresh();
     } catch (err) {
       console.error(err);
-      setError(err.info?.message || 'Failed to publish proposal type');
+      setError(err.info?.message || '提案类型发布失败');
     }
   };
 
@@ -94,7 +94,7 @@ export default function ProposalTypesPage() {
     setSuccess('');
 
     if (!editingType.name.trim() || !editingType.workflow_id) {
-      setError('Proposal type name and workflow are required');
+      setError('提案类型名称和关联流程不能为空');
       return;
     }
 
@@ -104,12 +104,12 @@ export default function ProposalTypesPage() {
         description: editingType.description,
         workflow_id: Number(editingType.workflow_id),
       });
-      setSuccess(`Updated proposal type "${editingType.name.trim()}"`);
+      setSuccess(`提案类型“${editingType.name.trim()}”更新成功`);
       setEditingId(null);
       await refresh();
     } catch (err) {
       console.error(err);
-      setError(err.info?.message || 'Failed to update proposal type');
+      setError(err.info?.message || '提案类型更新失败');
     }
   };
 
@@ -117,9 +117,9 @@ export default function ProposalTypesPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Proposal Type Publishing</h1>
+          <h1 className="text-3xl font-bold">提案类型管理</h1>
           <p className="text-sm text-gray-500 mt-2">
-            Publish a workflow by exposing it as a selectable proposal type for proposers.
+            将流程发布为提案者创建申请时可选择的提案类型。
           </p>
         </div>
         <button
@@ -127,7 +127,7 @@ export default function ProposalTypesPage() {
           onClick={() => setShowCreateForm((value) => !value)}
           className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
         >
-          {showCreateForm ? 'Cancel' : '+ Publish Workflow'}
+          {showCreateForm ? '取消' : '+ 发布提案类型'}
         </button>
       </div>
 
@@ -136,27 +136,27 @@ export default function ProposalTypesPage() {
 
       {showCreateForm && (
         <div className="bg-white shadow-md rounded-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">Publish New Proposal Type</h2>
+          <h2 className="text-xl font-semibold mb-4">发布新提案类型</h2>
           <form onSubmit={handleCreate} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Proposal Type Name *</label>
+                <label className="block text-sm font-medium text-gray-700">提案类型名称 *</label>
                 <input
                   type="text"
                   value={newType.name}
                   onChange={(event) => setNewType((prev) => ({ ...prev, name: event.target.value }))}
                   className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
-                  placeholder="e.g. CSST Cycle-1 Imaging"
+                  placeholder="例如：鸿蒙研究提案"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Workflow *</label>
+                <label className="block text-sm font-medium text-gray-700">关联流程 *</label>
                 <select
                   value={newType.workflow_id}
                   onChange={(event) => setNewType((prev) => ({ ...prev, workflow_id: event.target.value }))}
                   className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
                 >
-                  <option value="">Select workflow</option>
+                  <option value="">请选择流程</option>
                   {workflows.map((workflow) => (
                     <option key={workflow.id} value={workflow.id}>
                       {workflow.name}
@@ -166,7 +166,7 @@ export default function ProposalTypesPage() {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700">Description</label>
+              <label className="block text-sm font-medium text-gray-700">说明</label>
               <textarea
                 rows={3}
                 value={newType.description}
@@ -178,7 +178,7 @@ export default function ProposalTypesPage() {
               type="submit"
               className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
             >
-              Publish
+              发布
             </button>
           </form>
         </div>
@@ -189,16 +189,16 @@ export default function ProposalTypesPage() {
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Name
+                名称
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Description
+                说明
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Published Workflow
+                关联流程
               </th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
+                操作
               </th>
             </tr>
           </thead>
@@ -206,13 +206,13 @@ export default function ProposalTypesPage() {
             {loading ? (
               <tr>
                 <td colSpan={4} className="px-6 py-4 text-center text-gray-500">
-                  Loading...
+                  正在加载…
                 </td>
               </tr>
             ) : proposalTypes.length === 0 ? (
               <tr>
                 <td colSpan={4} className="px-6 py-4 text-center text-gray-500">
-                  No proposal types published yet.
+                  暂未发布提案类型。
                 </td>
               </tr>
             ) : (
@@ -242,7 +242,7 @@ export default function ProposalTypesPage() {
                           onChange={(event) => setEditingType((prev) => ({ ...prev, workflow_id: event.target.value }))}
                           className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
                         >
-                          <option value="">Select workflow</option>
+                          <option value="">请选择流程</option>
                           {workflows.map((workflow) => (
                             <option key={workflow.id} value={workflow.id}>
                               {workflow.name}
@@ -256,14 +256,14 @@ export default function ProposalTypesPage() {
                           onClick={() => handleUpdate(proposalType.id)}
                           className="text-green-600 hover:text-green-900"
                         >
-                          Save
+                          保存
                         </button>
                         <button
                           type="button"
                           onClick={() => setEditingId(null)}
                           className="text-gray-600 hover:text-gray-900"
                         >
-                          Cancel
+                          取消
                         </button>
                       </td>
                     </>
@@ -272,7 +272,7 @@ export default function ProposalTypesPage() {
                       <td className="px-6 py-4 text-sm font-medium text-gray-900">{proposalType.name}</td>
                       <td className="px-6 py-4 text-sm text-gray-500">{proposalType.description || '-'}</td>
                       <td className="px-6 py-4 text-sm text-gray-500">
-                        {workflowNameMap[proposalType.workflow_id] || `Workflow #${proposalType.workflow_id}`}
+                        {workflowNameMap[proposalType.workflow_id] || `流程 #${proposalType.workflow_id}`}
                       </td>
                       <td className="px-6 py-4 text-right text-sm">
                         <button
@@ -280,7 +280,7 @@ export default function ProposalTypesPage() {
                           onClick={() => startEdit(proposalType)}
                           className="text-indigo-600 hover:text-indigo-900"
                         >
-                          Edit
+                          编辑
                         </button>
                       </td>
                     </>

@@ -99,7 +99,7 @@ def create_form_template():
         
         # 输入表单模板信息
         print("\n请输入新表单模板的信息：")
-        name = input("表单名称（如 CSST成像表单）: ").strip()
+        name = input("表单名称（如 DSL低频观测表单）: ").strip()
         phase = input("适用阶段（phase1/phase2）: ").strip() or "phase1"
         instrument_id_input = input("关联仪器ID（输入0表示通用表单）: ").strip()
         
@@ -181,7 +181,6 @@ def create_form_template():
 
 if __name__ == '__main__':
     create_form_template()
-
 
 
 

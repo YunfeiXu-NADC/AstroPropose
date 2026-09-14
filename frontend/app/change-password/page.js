@@ -28,7 +28,7 @@ export default function ChangePasswordPage() {
         setUser(me);
       } catch (err) {
         console.error(err);
-        setError('Unable to verify your session. Please log in again.');
+        setError('无法验证登录状态，请重新登录。');
         if (err.status === 401) {
           localStorage.removeItem('token');
           window.dispatchEvent(new Event('auth-change'));
@@ -48,12 +48,12 @@ export default function ChangePasswordPage() {
     setSuccess('');
 
     if (!oldPassword || !newPassword) {
-      setError('Current password and new password are required');
+      setError('请输入当前密码和新密码');
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setError('The password confirmation does not match');
+      setError('两次输入的新密码不一致');
       return;
     }
 
@@ -62,7 +62,7 @@ export default function ChangePasswordPage() {
         old_password: oldPassword,
         new_password: newPassword,
       });
-      setSuccess('Password updated successfully. Please sign in again.');
+      setSuccess('密码更新成功，请重新登录。');
       setOldPassword('');
       setNewPassword('');
       setConfirmPassword('');
@@ -74,21 +74,21 @@ export default function ChangePasswordPage() {
       }, 1200);
     } catch (err) {
       console.error(err);
-      setError(err.info?.message || 'Failed to update password');
+      setError(err.info?.message || '密码更新失败');
     }
   };
 
   if (loading) {
-    return <div>Loading...</div>;
+    return <div>正在加载…</div>;
   }
 
   return (
     <div className="flex justify-center">
       <div className="w-full max-w-xl bg-white shadow-md rounded-lg p-8 space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">Change Password</h1>
+          <h1 className="text-3xl font-bold">修改密码</h1>
           <p className="text-sm text-gray-600">
-            Update the password for {user?.username || 'your account'}.
+            为账户 {user?.username || '当前账户'} 更新登录密码。
           </p>
         </div>
 
@@ -97,7 +97,7 @@ export default function ChangePasswordPage() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700">Current Password</label>
+            <label className="block text-sm font-medium text-gray-700">当前密码</label>
             <input
               type="password"
               value={oldPassword}
@@ -108,7 +108,7 @@ export default function ChangePasswordPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">New Password</label>
+            <label className="block text-sm font-medium text-gray-700">新密码</label>
             <input
               type="password"
               value={newPassword}
@@ -119,7 +119,7 @@ export default function ChangePasswordPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700">Confirm New Password</label>
+            <label className="block text-sm font-medium text-gray-700">确认新密码</label>
             <input
               type="password"
               value={confirmPassword}
@@ -133,7 +133,7 @@ export default function ChangePasswordPage() {
             type="submit"
             className="w-full px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
           >
-            Update Password
+            更新密码
           </button>
         </form>
       </div>

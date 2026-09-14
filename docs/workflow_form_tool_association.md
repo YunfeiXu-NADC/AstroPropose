@@ -19,10 +19,10 @@
   2. 查找 `phase` 匹配且 `instrument_id` 匹配的仪器特定表单
 
 **示例**：
-- 创建 Phase1 提案，选择 CSST_IM 仪器时：
+- 创建第一阶段提案，选择 LF 仪器时：
   - 自动加载：`Proposal Info`（通用，phase1）
   - 自动加载：`Proposer Info`（通用，phase1）
-  - 自动加载：`Basic Observation Parameters`（仪器特定，phase1，CSST_IM）
+  - 自动加载：`Basic Observation Parameters`（仪器特定，phase1，LF）
 
 #### 方式二：通过 WorkflowState.form_template_id 关联（辅助方式）
 
@@ -37,7 +37,7 @@
 - `Draft` 状态关联 `Proposal Info`（提示表单，非必填）
 - `UnderReview` 状态关联 `Review Form`（必填表单）
 
-### 1.2 CSST 工作流中的表单关联
+### 1.2 DSL 工作流中的表单关联
 
 | 状态 | 关联表单 | 表单必填 | 说明 |
 |------|----------|----------|------|
@@ -60,7 +60,7 @@
    - **通用表单**（phase1，无 instrument）：
      - Proposal Info
      - Proposer Info
-   - **仪器表单**（phase1，CSST_IM）：
+   - **仪器表单**（phase1，LF）：
      - Basic Observation Parameters
 3. 用户填写所有表单后提交
 
@@ -130,13 +130,13 @@
 2. **触发时机**：当执行该转换时，系统会调用定义的外部工具
 3. **执行顺序**：在状态转换之前执行（如果失败且配置为 `abort`，会阻止转换）
 
-### 2.3 CSST 工作流中的外部工具调用
+### 2.3 DSL 工作流中的外部工具调用
 
 | 转换名称 | 从状态 | 到状态 | 调用的外部工具 | 说明 |
 |---------|--------|--------|---------------|------|
-| start_scheduling | Phase1Submitted | Scheduling | CSST Scheduling Tool | 编排观测目标 |
-| complete_scheduling | Scheduling | Phase1Confirmed | CSST Notification Service | 通知提案人编排完成 |
-| finalize_decision | ReviewComplete | FinalDecision | CSST Notification Service | 通知提案人最终决定 |
+| start_scheduling | Phase1Submitted | Scheduling | DSL 观测编排工具 | 编排观测目标 |
+| complete_scheduling | Scheduling | Phase1Confirmed | DSL 通知服务 | 通知提案人编排完成 |
+| finalize_decision | ReviewComplete | FinalDecision | DSL 通知服务 | 通知提案人最终决定 |
 
 ### 2.4 配置示例
 
@@ -230,14 +230,14 @@ ExternalToolOperation
    - 设置 `on_failure: "abort"`（验证失败应阻止提交）
    - 设置 `tool_type: "validation"` 和相应的 `validation_config`
 
-## 五、CSST 工作流完整配置
+## 五、DSL 工作流完整配置
 
 ### 5.1 表单加载规则
 
 **Phase1 创建提案时**：
 - 自动加载：Proposal Info（通用）
 - 自动加载：Proposer Info（通用）
-- 自动加载：Basic Observation Parameters（CSST_IM 仪器）
+- 自动加载：Basic Observation Parameters（LF 仪器）
 
 **Phase2 编辑提案时**：
 - 显示：Basic Observation Parameters（通过 WorkflowState 关联）
@@ -299,4 +299,3 @@ ExternalToolOperation
   - **表单字段调用**：字段配置 `external_tool_operation_id`，用户交互式调用
   - **转换调用**：在 `transition.effects.external_tools` 中定义，自动执行
 - **设计优势**：灵活、可配置、易于扩展，支持交互式和自动化两种调用方式
-

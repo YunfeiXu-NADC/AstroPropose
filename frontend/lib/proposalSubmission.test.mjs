@@ -6,7 +6,7 @@ import { buildProposalCreatePayload } from './proposalSubmission.mjs';
 test('buildProposalCreatePayload keeps phase1 as draft so workflow submit transition remains available', () => {
   const payload = buildProposalCreatePayload({
     selectedProposalType: 7,
-    selectedInstruments: ['CSST_IM'],
+    selectedInstruments: ['LF'],
     phaseState: {
       phase1: {
         meta: {
@@ -20,7 +20,7 @@ test('buildProposalCreatePayload keeps phase1 as draft so workflow submit transi
       },
     },
     instrumentState: {
-      CSST_IM: {
+      LF: {
         form: { target_name: 'M31' },
         attachments: {},
       },
@@ -30,5 +30,5 @@ test('buildProposalCreatePayload keeps phase1 as draft so workflow submit transi
   assert.equal(payload.proposal_type_id, 7);
   assert.equal(payload.phase_payload.phase1.status, 'draft');
   assert.equal(payload.phase_payload.phase1.data.science_goal, 'Verify submit transition');
-  assert.equal(payload.instruments[0].instrument_code, 'CSST_IM');
+  assert.equal(payload.instruments[0].instrument_code, 'LF');
 });

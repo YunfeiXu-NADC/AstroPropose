@@ -26,7 +26,7 @@ export default function AdminLayout({ children }) {
         }
       } catch (err) {
         console.error(err);
-        setError('Unable to verify administrator access. Please log in again.');
+        setError('无法验证管理员权限，请重新登录。');
         if (err.status === 401) {
           localStorage.removeItem('token');
           window.dispatchEvent(new Event('auth-change'));
@@ -43,7 +43,7 @@ export default function AdminLayout({ children }) {
   }, [router]);
 
   if (isChecking) {
-    return <div>Loading...</div>;
+    return <div>正在加载…</div>;
   }
 
   if (error) {

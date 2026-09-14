@@ -140,7 +140,6 @@ dist
 
 # Gatsby files
 .cache/
-public
 
 # Storybook build outputs
 .out
@@ -315,4 +314,4 @@ $RECYCLE.BIN/
 .nfs*
 
 # Application specific ignores
-# Add any project-specific files that should be ignored 
+# Add any project-specific files that should be ignored

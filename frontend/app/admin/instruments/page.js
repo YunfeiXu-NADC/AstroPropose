@@ -30,7 +30,7 @@ export default function InstrumentsPage() {
       const data = await listInstruments();
       setInstruments(data);
     } catch (err) {
-      setError('Failed to load instruments');
+      setError('仪器加载失败');
       console.error(err);
     } finally {
       setIsLoading(false);
@@ -43,7 +43,7 @@ export default function InstrumentsPage() {
     setSuccess('');
 
     if (!newCode.trim() || !newName.trim()) {
-      setError('Instrument code and name are required');
+      setError('仪器编码和名称不能为空');
       return;
     }
 
@@ -54,14 +54,14 @@ export default function InstrumentsPage() {
         description: newDescription,
         is_active: true,
       });
-      setSuccess(`Instrument "${newCode.toUpperCase()}" created successfully!`);
+      setSuccess(`仪器“${newCode.toUpperCase()}”创建成功`);
       setNewCode('');
       setNewName('');
       setNewDescription('');
       setShowCreateForm(false);
       fetchInstruments();
     } catch (err) {
-      setError(err.info?.message || 'Failed to create instrument');
+      setError(err.info?.message || '仪器创建失败');
       console.error(err);
     }
   };
@@ -75,11 +75,11 @@ export default function InstrumentsPage() {
         name: editName,
         description: editDescription,
       });
-      setSuccess(`Instrument "${code}" updated successfully!`);
+      setSuccess(`仪器“${code}”更新成功`);
       setEditingCode(null);
       fetchInstruments();
     } catch (err) {
-      setError(err.info?.message || 'Failed to update instrument');
+      setError(err.info?.message || '仪器更新失败');
       console.error(err);
     }
   };
@@ -92,10 +92,10 @@ export default function InstrumentsPage() {
       await updateInstrument(instrument.code, {
         is_active: !instrument.is_active,
       });
-      setSuccess(`Instrument "${instrument.code}" status updated`);
+      setSuccess(`仪器“${instrument.code}”状态已更新`);
       fetchInstruments();
     } catch (err) {
-      setError(err.info?.message || 'Failed to update instrument status');
+      setError(err.info?.message || '仪器状态更新失败');
       console.error(err);
     }
   };
@@ -109,18 +109,17 @@ export default function InstrumentsPage() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Instrument Management</h1>
+        <h1 className="text-3xl font-bold">仪器管理</h1>
         <button
           onClick={() => setShowCreateForm(!showCreateForm)}
           className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
         >
-          {showCreateForm ? 'Cancel' : '+ Add Instrument'}
+          {showCreateForm ? '取消' : '+ 添加仪器'}
         </button>
       </div>
 
       <p className="text-gray-600">
-        Manage the telescope's instrument list here. Instruments can be associated with form templates
-        to collect instrument-specific observation parameters. This system supports any telescope and instrument configuration.
+        管理鸿蒙计划的仪器列表。仪器可关联表单模板，用于收集对应的观测参数。
       </p>
 
       {error && <p className="text-red-500 bg-red-100 p-3 rounded">{error}</p>}
@@ -129,12 +128,12 @@ export default function InstrumentsPage() {
       {/* Create new instrument form */}
       {showCreateForm && (
         <div className="bg-white shadow-md rounded-lg p-6">
-          <h2 className="text-xl font-semibold mb-4">Add New Instrument</h2>
+          <h2 className="text-xl font-semibold mb-4">添加仪器</h2>
           <form onSubmit={handleCreate} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">
-                  Instrument Code * <span className="text-gray-400">(unique identifier)</span>
+                  仪器编码 * <span className="text-gray-400">（唯一标识）</span>
                 </label>
                 <input
                   type="text"
@@ -142,15 +141,15 @@ export default function InstrumentsPage() {
                   value={newCode}
                   onChange={(e) => setNewCode(e.target.value)}
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 uppercase"
-                  placeholder="e.g., IFU, MCI, HSTDM"
+                  placeholder="例如：LF、HF"
                 />
                 <p className="mt-1 text-xs text-gray-500">
-                  Recommended: use short uppercase abbreviations
+                  建议使用简短的大写字母缩写
                 </p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">
-                  Instrument Name *
+                  仪器名称 *
                 </label>
                 <input
                   type="text"
@@ -158,27 +157,27 @@ export default function InstrumentsPage() {
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  placeholder="e.g., Integral Field Unit"
+                  placeholder="例如：低频成像阵列"
                 />
               </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700">
-                Description
+                说明
               </label>
               <textarea
                 value={newDescription}
                 onChange={(e) => setNewDescription(e.target.value)}
                 rows={3}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder="Brief description of the instrument..."
+                placeholder="简要说明仪器用途和频段"
               />
             </div>
             <button
               type="submit"
               className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
             >
-              Create Instrument
+              创建仪器
             </button>
           </form>
         </div>
@@ -190,19 +189,19 @@ export default function InstrumentsPage() {
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Code
+                编码
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Name
+                名称
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Description
+                说明
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Status
+                状态
               </th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
+                操作
               </th>
             </tr>
           </thead>
@@ -210,13 +209,13 @@ export default function InstrumentsPage() {
             {isLoading ? (
               <tr>
                 <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
-                  Loading...
+                  正在加载…
                 </td>
               </tr>
             ) : instruments.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
-                  No instruments configured. Click "Add Instrument" to get started.
+                  暂未配置仪器，请点击“添加仪器”。
                 </td>
               </tr>
             ) : (
@@ -252,7 +251,7 @@ export default function InstrumentsPage() {
                               : 'bg-gray-100 text-gray-800'
                           }`}
                         >
-                          {instrument.is_active ? 'Active' : 'Inactive'}
+                          {instrument.is_active ? '已启用' : '已停用'}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
@@ -260,13 +259,13 @@ export default function InstrumentsPage() {
                           onClick={() => handleUpdate(instrument.code)}
                           className="text-green-600 hover:text-green-900"
                         >
-                          Save
+                          保存
                         </button>
                         <button
                           onClick={() => setEditingCode(null)}
                           className="text-gray-600 hover:text-gray-900"
                         >
-                          Cancel
+                          取消
                         </button>
                       </td>
                     </>
@@ -290,7 +289,7 @@ export default function InstrumentsPage() {
                               : 'bg-gray-100 text-gray-800'
                           }`}
                         >
-                          {instrument.is_active ? 'Active' : 'Inactive'}
+                          {instrument.is_active ? '已启用' : '已停用'}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2">
@@ -298,7 +297,7 @@ export default function InstrumentsPage() {
                           onClick={() => startEdit(instrument)}
                           className="text-indigo-600 hover:text-indigo-900"
                         >
-                          Edit
+                          编辑
                         </button>
                         <button
                           onClick={() => handleToggleActive(instrument)}
@@ -308,7 +307,7 @@ export default function InstrumentsPage() {
                               : 'text-green-600 hover:text-green-900'
                           }
                         >
-                          {instrument.is_active ? 'Disable' : 'Enable'}
+                          {instrument.is_active ? '停用' : '启用'}
                         </button>
                       </td>
                     </>
@@ -322,12 +321,12 @@ export default function InstrumentsPage() {
 
       {/* Usage instructions */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-2">💡 Usage Guide</h3>
+        <h3 className="font-semibold text-blue-800 mb-2">使用说明</h3>
         <ul className="text-sm text-blue-700 space-y-1">
-          <li>• <strong>Instrument Code</strong>: Unique identifier, cannot be changed after creation. Use short uppercase abbreviations.</li>
-          <li>• <strong>Associated Forms</strong>: When creating form templates, you can associate them with specific instruments to collect instrument-specific parameters.</li>
-          <li>• <strong>General Forms</strong>: Forms not associated with any instrument apply to all proposals.</li>
-          <li>• <strong>Disable Instrument</strong>: Disabled instruments will not appear in the proposal creation selection list.</li>
+          <li>• <strong>仪器编码：</strong>创建后不可修改，建议使用简短的大写字母缩写。</li>
+          <li>• <strong>关联表单：</strong>创建表单模板时可关联指定仪器，以收集仪器专用参数。</li>
+          <li>• <strong>通用表单：</strong>未关联仪器的表单适用于所有提案。</li>
+          <li>• <strong>停用仪器：</strong>停用后不会出现在新建提案的仪器选择列表中。</li>
         </ul>
       </div>
     </div>

@@ -9,10 +9,10 @@ def auth_headers(token):
 def test_create_phase1_proposal(client, proposer_token):
     proposal_type = ProposalType.query.first()
     payload = {
-        "title": "CSST Early Release Science",
+        "title": "DSL Early Release Science",
         "abstract": "Test abstract",
         "proposal_type_id": proposal_type.id,
-        "meta": {"title": "CSST Early Release Science", "abstract": "Test abstract"},
+        "meta": {"title": "DSL Early Release Science", "abstract": "Test abstract"},
         "phase_payload": {
             "phase1": {
                 "status": "submitted",
@@ -27,7 +27,7 @@ def test_create_phase1_proposal(client, proposer_token):
         },
         "instruments": [
             {
-                "instrument_code": "MCI",
+                    "instrument_code": "LF",
                 "status": "submitted",
                 "form_data": {"filter": "F275W", "exposure_time": 1200},
                 "attachments": {
@@ -61,4 +61,3 @@ def test_create_phase1_proposal(client, proposer_token):
     assert instrument_entry is not None
     assert instrument_entry.form_data["filter"] == "F275W"
     assert "__attachments__" in instrument_entry.form_data
-

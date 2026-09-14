@@ -29,8 +29,8 @@ def create_proposal_type():
         
         # 输入提案类型信息
         print("\n请输入新提案类型的信息：")
-        name = input("名称（如 CSST-IMG）: ").strip()
-        description = input("描述（如 CSST成像观测提案）: ").strip()
+        name = input("名称（如 DSL-RES）: ").strip()
+        description = input("描述（如 DSL研究提案）: ").strip()
         workflow_id = input(f"关联工作流ID（1-{len(workflows)}）: ").strip()
         
         if not name or not workflow_id:
@@ -76,7 +76,6 @@ def create_proposal_type():
 
 if __name__ == '__main__':
     create_proposal_type()
-
 
 
 

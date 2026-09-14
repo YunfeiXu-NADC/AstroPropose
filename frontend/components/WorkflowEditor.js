@@ -21,6 +21,7 @@ import {
   getFormTemplate,
 } from '@/lib/api';
 import { createExampleWorkflowPreset } from '@/lib/workflowPreset.mjs';
+import { translatePhase, translateRole } from '@/lib/locale.mjs';
 
 // Custom state node component
 const StateNode = ({ data, selected }) => {
@@ -79,7 +80,7 @@ const nodeTypes = {
 const WorkflowEditor = ({ initialDefinition, onSave }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-  const [initialState, setInitialState] = useState('Draft');
+  const [initialState, setInitialState] = useState('草稿');
   const [transitionsDraft, setTransitionsDraft] = useState('[]');
   const [error, setError] = useState('');
   
@@ -153,8 +154,8 @@ const WorkflowEditor = ({ initialDefinition, onSave }) => {
     if (!initialDefinition) {
       // Default nodes if no definition
       setNodes([
-        { id: '1', type: 'stateNode', data: { label: 'Draft' }, position: { x: 100, y: 100 } },
-        { id: '2', type: 'stateNode', data: { label: 'Submitted' }, position: { x: 300, y: 100 } },
+        { id: '1', type: 'stateNode', data: { label: '草稿' }, position: { x: 100, y: 100 } },
+        { id: '2', type: 'stateNode', data: { label: '已提交' }, position: { x: 300, y: 100 } },
       ]);
       return;
     }
@@ -197,7 +198,7 @@ const WorkflowEditor = ({ initialDefinition, onSave }) => {
     if (initialDefinition.edges) {
       setEdges(initialDefinition.edges);
     }
-    setInitialState(initialDefinition.initial_state || 'Draft');
+    setInitialState(initialDefinition.initial_state || '草稿');
     setTransitionsDraft(JSON.stringify(initialDefinition.transitions || [], null, 2));
   }, [initialDefinition, setNodes, setEdges, formTemplates, externalToolOperations]);
 
@@ -423,7 +424,7 @@ const WorkflowEditor = ({ initialDefinition, onSave }) => {
     if (!selectedEdgeId || !editingTransition) return;
     
     // Confirm deletion
-    if (!confirm(`Are you sure you want to delete the transition "${editingTransition.label || editingTransition.name}"?`)) {
+    if (!confirm(`确定删除流转规则“${editingTransition.label || editingTransition.name}”吗？`)) {
       return;
     }
     
@@ -457,7 +458,7 @@ const WorkflowEditor = ({ initialDefinition, onSave }) => {
     const newNode = {
       id: newId,
       type: 'stateNode',
-      data: { label: 'New Node', formTemplateId: null, formRequired: false },
+      data: { label: '新节点', formTemplateId: null, formRequired: false },
       position: { x: 200, y: maxY + 120 },
     };
     setNodes((nds) => [...nds, newNode]);
@@ -488,7 +489,7 @@ const WorkflowEditor = ({ initialDefinition, onSave }) => {
       onSave(definition);
     } catch (err) {
       console.error(err);
-      setError('Failed to parse Transitions JSON. Please check the format.');
+      setError('流转规则 JSON 解析失败，请检查格式。');
     }
   };
 
@@ -504,13 +505,13 @@ const WorkflowEditor = ({ initialDefinition, onSave }) => {
     <div className="space-y-6">
       {/* Help section */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-2">📖 How to Use the Workflow Editor</h3>
+        <h3 className="font-semibold text-blue-800 mb-2">📖 流程编辑器使用说明</h3>
         <div className="text-sm text-blue-700 space-y-2">
-          <p><strong>1. Nodes:</strong> Each box represents a workflow node (e.g., Draft, Submitted, Approved). <strong>Click a node</strong> to edit its properties.</p>
-          <p><strong>2. Transitions (Edges):</strong> Arrows between nodes show how proposals can move from one node to another. <strong>Click an arrow</strong> to configure the transition rules (who can trigger it, conditions, effects).</p>
-          <p><strong>3. Initial Node:</strong> The starting node for new proposals (usually "Draft").</p>
-          <p><strong>4. Form Templates:</strong> Click a node to associate a form that must be filled at that node.</p>
-          <p><strong>5. Transitions JSON:</strong> The JSON below shows all transitions. You can edit them directly here, or click edges above for a visual editor.</p>
+          <p><strong>1. 流程节点：</strong> 每个方框代表一个流程状态，例如草稿、已提交、已通过。点击节点可编辑属性。</p>
+          <p><strong>2. 流转连线：</strong> 箭头表示提案如何从一个状态进入下一个状态。点击箭头可配置执行角色、条件和效果。</p>
+          <p><strong>3. 初始节点：</strong> 新提案创建后的起始状态，通常为“草稿”。</p>
+          <p><strong>4. 表单模板：</strong> 点击节点可关联该阶段需要填写的表单。</p>
+          <p><strong>5. 流转规则 JSON：</strong> 下方显示全部流转规则，可直接编辑，也可点击连线进行可视化配置。</p>
         </div>
       </div>
 
@@ -521,14 +522,14 @@ const WorkflowEditor = ({ initialDefinition, onSave }) => {
           onClick={addNewState}
           className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
         >
-          + Add Node
+          + 添加节点
         </button>
         <button
           type="button"
           onClick={insertPreset}
           className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700"
         >
-          Load Example Workflow
+          载入示例流程
         </button>
         {selectedNodeId && (
           <button
@@ -536,7 +537,7 @@ const WorkflowEditor = ({ initialDefinition, onSave }) => {
             onClick={deleteSelectedNode}
             className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
           >
-            Delete Selected Node
+            删除选中节点
           </button>
         )}
       </div>
@@ -581,7 +582,7 @@ const WorkflowEditor = ({ initialDefinition, onSave }) => {
                 label: hasExternalTools ? (
                   <div className="flex items-center gap-1 bg-white px-2 py-1 rounded shadow-sm border border-green-300">
                     <span className="text-xs">🔧</span>
-                    <span className="text-xs text-green-700 font-medium">{toolNames.length > 0 ? toolNames.join(', ') : 'External Tool'}</span>
+                    <span className="text-xs text-green-700 font-medium">{toolNames.length > 0 ? toolNames.join(', ') : '外部工具'}</span>
                   </div>
                 ) : edge.label,
               };
@@ -630,6 +631,19 @@ const WorkflowEditor = ({ initialDefinition, onSave }) => {
             onNodeClick={onNodeClick}
             onEdgeClick={onEdgeClick}
             nodeTypes={nodeTypes}
+            ariaLabelConfig={{
+              'node.a11yDescription.default': '按回车或空格选择节点，按删除键移除，按退出键取消。',
+              'node.a11yDescription.keyboardDisabled': '按回车或空格选择节点，再使用方向键移动，按删除键移除。',
+              'node.a11yDescription.ariaLiveMessage': ({ x, y }) => `节点已移动到横坐标 ${x}、纵坐标 ${y}`,
+              'edge.a11yDescription.default': '按回车或空格选择连线，按删除键移除，按退出键取消。',
+              'controls.ariaLabel': '流程图控制面板',
+              'controls.zoomIn.ariaLabel': '放大',
+              'controls.zoomOut.ariaLabel': '缩小',
+              'controls.fitView.ariaLabel': '适应画布',
+              'controls.interactive.ariaLabel': '切换交互模式',
+              'minimap.ariaLabel': '流程缩略图',
+              'handle.ariaLabel': '连接点',
+            }}
             fitView
             fitViewOptions={{ padding: 0.2 }}
             deleteKeyCode={['Backspace', 'Delete']}
@@ -644,7 +658,7 @@ const WorkflowEditor = ({ initialDefinition, onSave }) => {
         {showEdgeEditor && editingTransition && (
           <div className="w-80 rounded-lg border border-gray-200 bg-white p-4 shadow-lg">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="font-semibold text-gray-800">Edit Transition</h3>
+              <h3 className="font-semibold text-gray-800">编辑流转规则</h3>
               <button
                 type="button"
                 onClick={() => {
@@ -664,40 +678,40 @@ const WorkflowEditor = ({ initialDefinition, onSave }) => {
                 <div className="font-medium text-gray-700">
                   {editingTransition.from} → {editingTransition.to}
                 </div>
-                <div className="text-xs text-gray-500 mt-1">Source → Target</div>
+                <div className="text-xs text-gray-500 mt-1">起始节点 → 目标节点</div>
               </div>
 
               {/* Transition Name */}
               <div>
-                <label className="block text-sm font-medium text-gray-700">Transition Name *</label>
+                <label className="block text-sm font-medium text-gray-700">规则标识 *</label>
                 <input
                   type="text"
                   required
                   value={editingTransition.name || ''}
                   onChange={(e) => updateTransition({ ...editingTransition, name: e.target.value })}
                   className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  placeholder="e.g., submit_phase1"
+                  placeholder="例如：submit_proposal"
                 />
-                <p className="mt-1 text-xs text-gray-500">Unique identifier (used in code)</p>
+                <p className="mt-1 text-xs text-gray-500">供系统内部唯一识别该规则</p>
               </div>
 
               {/* Transition Label */}
               <div>
-                <label className="block text-sm font-medium text-gray-700">Display Label *</label>
+                <label className="block text-sm font-medium text-gray-700">显示名称 *</label>
                 <input
                   type="text"
                   required
                   value={editingTransition.label || ''}
                   onChange={(e) => updateTransition({ ...editingTransition, label: e.target.value })}
                   className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  placeholder="e.g., Submit Phase-1"
+                  placeholder="例如：提交申请"
                 />
-                <p className="mt-1 text-xs text-gray-500">Shown to users as button/action name</p>
+                <p className="mt-1 text-xs text-gray-500">作为用户看到的按钮或操作名称</p>
               </div>
 
               {/* Roles */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Allowed Roles *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">可执行角色 *</label>
                 <div className="space-y-2">
                   {roleOptions.map((role) => (
                     <label key={role} className="flex items-center gap-2 text-sm">
@@ -713,16 +727,16 @@ const WorkflowEditor = ({ initialDefinition, onSave }) => {
                         }}
                         className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                       />
-                      <span className="text-gray-700">{role}</span>
+                      <span className="text-gray-700">{translateRole(role)}</span>
                     </label>
                   ))}
                 </div>
-                <p className="mt-1 text-xs text-gray-500">Who can trigger this transition</p>
+                <p className="mt-1 text-xs text-gray-500">选择可执行该流转操作的角色</p>
               </div>
 
               {/* Conditions (JSON) */}
               <div>
-                <label className="block text-sm font-medium text-gray-700">Conditions (JSON, optional)</label>
+                <label className="block text-sm font-medium text-gray-700">执行条件（JSON，可选）</label>
                 <textarea
                   value={JSON.stringify(editingTransition.conditions || {}, null, 2)}
                   onChange={(e) => {
@@ -735,19 +749,19 @@ const WorkflowEditor = ({ initialDefinition, onSave }) => {
                   className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 font-mono text-xs"
                   placeholder='{"phase_status": {"phase": "phase1", "status": "draft"}}'
                 />
-                <p className="mt-1 text-xs text-gray-500">Requirements before transition can occur</p>
+                <p className="mt-1 text-xs text-gray-500">流程流转前必须满足的条件</p>
               </div>
 
               {/* External Tools */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">External Tools</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">外部工具</label>
                 <div className="space-y-2 mb-2">
                   {(editingTransition.effects?.external_tools || []).map((tool, index) => {
                     const op = externalToolOperations.find(o => o.id === tool.operation_id);
                     return (
                       <div key={index} className="flex items-center gap-2 p-2 bg-gray-50 rounded text-sm">
                         <span className="flex-1">
-                          {op ? `${op.toolName} - ${op.name}` : `Operation ID: ${tool.operation_id}`}
+                          {op ? `${op.toolName} - ${op.name}` : `操作编号：${tool.operation_id}`}
                         </span>
                         <select
                           value={tool.on_failure || 'continue'}
@@ -764,8 +778,8 @@ const WorkflowEditor = ({ initialDefinition, onSave }) => {
                           }}
                           className="text-xs px-2 py-1 border border-gray-300 rounded"
                         >
-                          <option value="continue">Continue on failure</option>
-                          <option value="abort">Abort on failure</option>
+                          <option value="continue">失败后继续</option>
+                          <option value="abort">失败后终止</option>
                         </select>
                         <button
                           type="button"
@@ -781,7 +795,7 @@ const WorkflowEditor = ({ initialDefinition, onSave }) => {
                           }}
                           className="text-red-600 hover:text-red-800 text-xs"
                         >
-                          Remove
+                          移除
                         </button>
                       </div>
                     );
@@ -806,19 +820,19 @@ const WorkflowEditor = ({ initialDefinition, onSave }) => {
                   }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm"
                 >
-                  <option value="">+ Add External Tool</option>
+                  <option value="">+ 添加外部工具</option>
                   {externalToolOperations.map((op) => (
                     <option key={op.id} value={op.id}>
                       {op.toolName} - {op.name}
                     </option>
                   ))}
                 </select>
-                <p className="mt-1 text-xs text-gray-500">Tools to call when this transition occurs</p>
+                <p className="mt-1 text-xs text-gray-500">流程流转时需要调用的工具</p>
               </div>
 
               {/* Other Effects (JSON) */}
               <div>
-                <label className="block text-sm font-medium text-gray-700">Other Effects (JSON, optional)</label>
+                <label className="block text-sm font-medium text-gray-700">其他执行效果（JSON，可选）</label>
                 <textarea
                   value={JSON.stringify(
                     Object.fromEntries(
@@ -843,7 +857,7 @@ const WorkflowEditor = ({ initialDefinition, onSave }) => {
                   className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 font-mono text-xs"
                   placeholder='{"phase": "phase1", "set_phase_status": "submitted"}'
                 />
-                <p className="mt-1 text-xs text-gray-500">Other actions (phase changes, status updates, etc.)</p>
+                <p className="mt-1 text-xs text-gray-500">其他动作，例如阶段变更、状态更新等</p>
               </div>
 
               {/* Delete button */}
@@ -852,7 +866,7 @@ const WorkflowEditor = ({ initialDefinition, onSave }) => {
                 onClick={deleteTransition}
                 className="w-full px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm"
               >
-                Delete Transition
+                删除流转规则
               </button>
             </div>
           </div>
@@ -862,7 +876,7 @@ const WorkflowEditor = ({ initialDefinition, onSave }) => {
         {showNodeEditor && selectedNode && (
           <div className="w-80 rounded-lg border border-gray-200 bg-white p-4 shadow-lg">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="font-semibold text-gray-800">Edit Node</h3>
+              <h3 className="font-semibold text-gray-800">编辑节点</h3>
               <button
                 type="button"
                 onClick={() => setShowNodeEditor(false)}
@@ -875,20 +889,20 @@ const WorkflowEditor = ({ initialDefinition, onSave }) => {
             <div className="space-y-4">
               {/* Node name */}
               <div>
-                <label className="block text-sm font-medium text-gray-700">Node Name *</label>
+                <label className="block text-sm font-medium text-gray-700">节点名称 *</label>
                 <input
                   type="text"
                   value={selectedNode.data.label || ''}
                   onChange={(e) => updateNodeData(selectedNodeId, { label: e.target.value })}
                   className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  placeholder="e.g., Draft, Submitted, Approved"
+                  placeholder="例如：草稿、已提交、已通过"
                 />
-                <p className="mt-1 text-xs text-gray-500">This name is used in transitions (must match exactly)</p>
+                <p className="mt-1 text-xs text-gray-500">流转规则会引用该名称，必须保持完全一致</p>
               </div>
 
               {/* Associated form */}
               <div>
-                <label className="block text-sm font-medium text-gray-700">Associated Form Template</label>
+                <label className="block text-sm font-medium text-gray-700">关联表单模板</label>
                 <select
                   value={selectedNode.data.formTemplateId || ''}
                   onChange={(e) => {
@@ -901,16 +915,16 @@ const WorkflowEditor = ({ initialDefinition, onSave }) => {
                   }}
                   className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                 >
-                  <option value="">-- No form required --</option>
+                  <option value="">-- 无需填写表单 --</option>
                   {formTemplates.map((template) => (
                     <option key={template.id} value={template.id}>
-                      {template.name} (v{template.version}) - {template.phase}
+                      {template.name}（版本 {template.version}）- {translatePhase(template.phase)}
                       {template.instrument && ` [${template.instrument}]`}
                     </option>
                   ))}
                 </select>
                 <p className="mt-1 text-xs text-gray-500">
-                  Users must fill this form when proposal is at this node
+                  提案到达该节点时，用户需要填写此表单
                 </p>
               </div>
 
@@ -924,20 +938,20 @@ const WorkflowEditor = ({ initialDefinition, onSave }) => {
                       onChange={(e) => updateNodeData(selectedNodeId, { formRequired: e.target.checked })}
                       className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                     />
-                    <span className="text-gray-700">Form must be completed to leave this node</span>
+                    <span className="text-gray-700">完成表单后才可离开该节点</span>
                   </label>
                 </div>
               )}
 
               {/* Description */}
               <div>
-                <label className="block text-sm font-medium text-gray-700">Description (optional)</label>
+                <label className="block text-sm font-medium text-gray-700">节点说明（可选）</label>
                 <textarea
                   value={selectedNode.data.description || ''}
                   onChange={(e) => updateNodeData(selectedNodeId, { description: e.target.value })}
                   rows={2}
                   className="mt-1 w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                  placeholder="What happens at this node?"
+                  placeholder="说明此节点需要完成的工作"
                 />
               </div>
             </div>
@@ -949,29 +963,28 @@ const WorkflowEditor = ({ initialDefinition, onSave }) => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Initial Node */}
         <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-          <label className="block text-sm font-medium text-gray-700 mb-2">Initial Node</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">初始节点</label>
           <input
             type="text"
             value={initialState}
             onChange={(e) => setInitialState(e.target.value)}
             className="w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-            placeholder="Draft"
+            placeholder="草稿"
           />
           <p className="mt-2 text-xs text-gray-500">
-            When a new proposal is created, it starts at this node. 
-            Must match one of your node names exactly (case-sensitive).
+            新提案创建后将从此节点开始，名称必须与流程图中的某个节点完全一致。
           </p>
         </div>
 
         {/* Quick reference */}
         <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-          <h4 className="text-sm font-medium text-gray-700 mb-2">Quick Reference</h4>
+          <h4 className="text-sm font-medium text-gray-700 mb-2">快捷说明</h4>
           <div className="text-xs text-gray-600 space-y-1">
-            <p>• <strong>Drag nodes</strong> to reposition them</p>
-            <p>• <strong>Drag from node edge</strong> to create a connection</p>
-            <p>• <strong>Click a node</strong> to edit its properties</p>
-            <p>• <strong>Click an arrow (edge)</strong> to configure transition rules</p>
-            <p>• <strong>Click "Load Example"</strong> to see a sample workflow</p>
+            <p>• 拖动节点可调整位置</p>
+            <p>• 从节点边缘拖动可建立连线</p>
+            <p>• 点击节点可编辑属性</p>
+            <p>• 点击箭头可配置流转规则</p>
+            <p>• 点击“载入示例流程”可查看示例</p>
           </div>
         </div>
       </div>
@@ -980,9 +993,9 @@ const WorkflowEditor = ({ initialDefinition, onSave }) => {
       <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
         <div className="flex items-center justify-between mb-2">
           <div>
-            <label className="block text-sm font-medium text-gray-700">Transitions Configuration (JSON)</label>
+            <label className="block text-sm font-medium text-gray-700">流转规则配置（JSON）</label>
             <p className="text-xs text-gray-500 mt-1">
-              Define the <strong>rules</strong> for state transitions: who can trigger them, when they're allowed, and what happens.
+              定义状态流转规则，包括执行角色、允许条件和执行效果。
             </p>
           </div>
         </div>
@@ -991,28 +1004,27 @@ const WorkflowEditor = ({ initialDefinition, onSave }) => {
           onChange={(e) => setTransitionsDraft(e.target.value)}
           rows={12}
           className="w-full rounded-md border border-gray-300 px-3 py-2 font-mono text-xs shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-indigo-500"
-          placeholder='[\n  {\n    "name": "submit_phase1",\n    "label": "Submit Phase-1",\n    "from": "Draft",\n    "to": "Submitted",\n    "roles": ["Proposer"],\n    "conditions": {},\n    "effects": {}\n  }\n]'
+          placeholder='[\n  {\n    "name": "submit_proposal",\n    "label": "提交申请",\n    "from": "草稿",\n    "to": "已提交",\n    "roles": ["Proposer"],\n    "conditions": {},\n    "effects": {}\n  }\n]'
         />
         <div className="mt-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-          <p className="text-xs font-semibold text-blue-900 mb-2">📖 What is this?</p>
+          <p className="text-xs font-semibold text-blue-900 mb-2">📖 这是什么？</p>
           <p className="text-xs text-blue-800 mb-2">
-            The <strong>graph above</strong> shows the workflow structure (nodes and connections). 
-            The <strong>Transitions Configuration</strong> defines the <strong>business rules</strong>:
+            上方流程图展示流程结构（节点和连线），流转规则配置用于定义具体业务规则：
           </p>
           <ul className="text-xs text-blue-800 space-y-1 list-disc list-inside mb-2">
-            <li><strong>Who</strong> can trigger each transition (roles)</li>
-            <li><strong>When</strong> transitions are allowed (conditions)</li>
-            <li><strong>What happens</strong> when a transition occurs (effects)</li>
+            <li>谁可以执行每条流转规则（角色）</li>
+            <li>什么条件下允许流转（条件）</li>
+            <li>流转发生后执行什么动作（效果）</li>
           </ul>
-          <p className="text-xs text-blue-700 font-medium">Each transition must have:</p>
+          <p className="text-xs text-blue-700 font-medium">每条规则包含：</p>
           <ul className="text-xs text-blue-700 list-disc list-inside space-y-0.5 mt-1">
-            <li><code>name</code>: Unique identifier (e.g., "submit_phase1")</li>
-            <li><code>label</code>: Display name shown to users</li>
-            <li><code>from</code>: Source node (must match a node's label exactly)</li>
-            <li><code>to</code>: Target node (must match a node's label exactly)</li>
-            <li><code>roles</code>: Who can trigger this (e.g., ["Proposer", "Admin"])</li>
-            <li><code>conditions</code>: (optional) Requirements before transition</li>
-            <li><code>effects</code>: (optional) Actions to perform (e.g., update phase status, call external tools)</li>
+            <li><code>name</code>：唯一标识，例如“submit_proposal”</li>
+            <li><code>label</code>：向用户显示的名称</li>
+            <li><code>from</code>：起始节点，必须与节点名称一致</li>
+            <li><code>to</code>：目标节点，必须与节点名称一致</li>
+            <li><code>roles</code>：可执行角色，例如 ["Proposer", "Admin"]</li>
+            <li><code>conditions</code>：可选，流转前需满足的条件</li>
+            <li><code>effects</code>：可选，流转时执行的动作</li>
           </ul>
         </div>
       </div>
@@ -1024,7 +1036,7 @@ const WorkflowEditor = ({ initialDefinition, onSave }) => {
           onClick={handleSave}
           className="rounded-md bg-indigo-600 px-6 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
         >
-          Save Workflow
+          保存流程
         </button>
       </div>
     </div>

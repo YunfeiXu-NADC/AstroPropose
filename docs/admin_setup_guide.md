@@ -40,8 +40,8 @@ npm run dev
 
 ### 1.2 创建新工作流
 在页面顶部"创建新工作流"区域：
-- **名称**：如 "CSST Observation Workflow"
-- **描述**：如 "CSST两阶段观测提案评审流程"
+- **名称**：如 "DSL 研究提案流程"
+- **描述**：如 "DSL 研究提案评审与数据分配流程"
 - 点击 **"创建工作流"** 按钮
 
 ### 1.3 可视化配置工作流
@@ -65,7 +65,7 @@ npm run dev
 
 ### 1.4 配置转换规则（JSON）
 
-点击"插入 CSST 示例"按钮，或手动输入以下 JSON：
+点击“载入示例流程”按钮，或手动输入以下 JSON：
 
 ```json
 [
@@ -164,8 +164,8 @@ uv run python create_proposal_type.py
 
 示例输入：
 ```
-名称：CSST-IMG
-描述：CSST成像观测提案
+名称：DSL-RES
+描述：DSL研究提案
 关联工作流ID：1
 ```
 
@@ -175,9 +175,9 @@ uv run python create_proposal_type.py
 ```
 ✅ 提案类型创建成功！
    ID: 4
-   名称: CSST-IMG
-   描述: CSST成像观测提案
-   关联工作流: CSST Observation Workflow
+   名称: DSL-RES
+   描述: DSL研究提案
+   关联工作流: DSL 研究提案流程
 ```
 
 ---
@@ -198,7 +198,7 @@ uv run python create_form_template.py
    - 适用阶段：`phase1`
 
 2. **仪器特定表单**（针对某个仪器）
-   - 输入仪器ID：如 `1` (CSST_IM)
+   - 输入仪器ID：如 `1` (LF)
    - 适用阶段：`phase1` 或 `phase2`
 
 ### 3.3 使用示例或自定义表单
@@ -262,10 +262,10 @@ uv run python create_form_template.py
 ```
 ✅ 表单模板创建成功！
    ID: 5
-   名称: CSST成像表单
+   名称: DSL低频观测表单
    阶段: phase1
    版本: v1
-   关联仪器: CSST_IM
+   关联仪器: LF
    
 表单包含 8 个字段
 ```
@@ -285,8 +285,8 @@ from app.models.models import Instrument
 app = create_app()
 with app.app_context():
     inst = Instrument(
-        code='CSST_NEW',
-        name='CSST New Instrument',
+        code='DSL_NEW',
+        name='DSL 新仪器',
         description='新仪器描述',
         is_active=True
     )
@@ -305,7 +305,7 @@ with app.app_context():
 1. 使用 `proposer` 账户登录（密码：`proposer123`）
 2. 访问 `http://localhost:3000/proposals/new`
 3. 填写表单：
-   - 选择提案类型（如 CSST-IMG）
+   - 选择提案类型（如 DSL-RES）
    - 填写标题和摘要
    - 选择仪器
    - 填写通用表单
@@ -387,7 +387,7 @@ with app.app_context():
 
 ## 📚 相关文档
 
-- [CSST 需求文档](./csst_requirements.md)
+- [DSL RPS 双流程设计](./DSL-RPS双流程设计.md)
 - [工作流引擎文档](./workflow_engine.md)
 - [API 文档](../README.md#api-endpoints)
 
@@ -395,8 +395,6 @@ with app.app_context():
 
 **更新日期**: 2025-12-01
 **版本**: 1.0
-
-
 
 
 

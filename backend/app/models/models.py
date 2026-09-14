@@ -26,6 +26,7 @@ class User(db.Model):
     roles = db.relationship("Role", secondary=roles_users, lazy="select", backref=db.backref("users", lazy=True))
     proposals = db.relationship("Proposal", backref="author", lazy="dynamic")
     instrument_feedbacks = db.relationship("InstrumentFeedback", backref="scheduler", lazy="dynamic")
+    proposal_reviews = db.relationship("ProposalReview", backref="reviewer", lazy="dynamic")
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -141,6 +142,9 @@ class Proposal(db.Model):
     state_history = db.relationship(
         "ProposalStateHistory", backref="proposal", lazy="dynamic", cascade="all, delete-orphan"
     )
+    reviews = db.relationship(
+        "ProposalReview", backref="proposal", lazy="dynamic", cascade="all, delete-orphan"
+    )
 
 
 class ProposalStateHistory(db.Model):
@@ -152,6 +156,29 @@ class ProposalStateHistory(db.Model):
     acted_by = db.Column(db.String(64))
     acted_at = db.Column(db.DateTime, default=datetime.utcnow)
     meta = db.Column(db.JSON, default=dict)
+
+
+class ProposalReview(db.Model):
+    """A role-scoped review saved independently from workflow transitions."""
+
+    __tablename__ = "proposal_review"
+    id = db.Column(db.Integer, primary_key=True)
+    proposal_id = db.Column(db.Integer, db.ForeignKey("proposal.id"), nullable=False)
+    reviewer_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
+    review_type = db.Column(db.String(32), nullable=False)
+    status = db.Column(db.String(32), nullable=False, default="submitted")
+    scores = db.Column(db.JSON, default=dict)
+    recommendation = db.Column(db.String(32))
+    comments = db.Column(db.Text)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    submitted_at = db.Column(db.DateTime)
+
+    __table_args__ = (
+        db.UniqueConstraint(
+            "proposal_id", "reviewer_id", "review_type", name="uq_proposal_reviewer_review_type"
+        ),
+        db.Index("ix_proposal_review_queue", "proposal_id", "review_type", "status"),
+    )
 
 
 class ProposalPhase(db.Model):

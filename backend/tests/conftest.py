@@ -75,14 +75,14 @@ def seed_reference_data():
         ],
     }
 
-    workflow = Workflow(name="CSST Phase Workflow", definition=workflow_definition)
+    workflow = Workflow(name="DSL Phase Workflow", definition=workflow_definition)
     draft_state = WorkflowState(name="Draft", workflow=workflow)
     submitted_state = WorkflowState(name="Submitted", workflow=workflow)
 
-    proposal_type = ProposalType(name="CSST Phase-1", workflow=workflow)
-    instrument = Instrument(code="MCI", name="Multi-channel Imager", description="CSST 多波段相机")
+    proposal_type = ProposalType(name="DSL Phase-1", workflow=workflow)
+    instrument = Instrument(code="LF", name="低频阵列", description="DSL 低频观测阵列")
     template = FormTemplate(
-        name="CSST Phase-1 Common",
+        name="DSL Phase-1 Common",
         definition={
             "fields": [
                 {"name": "science_objective", "label": "科学目标", "type": "textarea", "required": True},

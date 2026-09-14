@@ -496,7 +496,7 @@ def run_regression(frontend_url: str, artifact_dir: Path):
     assert_true(page.call_helper("setByLabel", "Proposal Title", proposal_title), "Proposal title input not found")
     assert_true(page.call_helper("setByLabel", "Abstract", "UI regression proposal abstract"), "Proposal abstract input not found")
     assert_true(page.call_helper("setByLabel", field_label, "UI regression field content"), "Workflow-bound field input not found")
-    assert_true(page.call_helper("clickInstrument", "CSST Imaging Camera"), "Instrument toggle button not found")
+    assert_true(page.call_helper("clickInstrument", "低频阵列"), "Instrument toggle button not found")
     assert_true(page.call_helper("clickButton", "Submit Phase-1"), "Submit Phase-1 button not found")
     page.wait_until(
         "dashboard redirect after proposal submit",

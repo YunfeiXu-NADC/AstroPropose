@@ -177,7 +177,7 @@ def test_admin_can_publish_workflow_and_proposer_can_submit_through_it(client, a
             },
             "instruments": [
                 {
-                    "instrument_code": "MCI",
+                        "instrument_code": "LF",
                     "status": "submitted",
                     "form_data": {"filter": "F275W", "exposure_time": 600},
                 }

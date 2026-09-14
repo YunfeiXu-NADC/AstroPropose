@@ -10,22 +10,23 @@ import {
   listExternalTools,
   getExternalTool,
 } from '@/lib/api';
+import { translatePhase } from '@/lib/locale.mjs';
 
 // Field type options
 const FIELD_TYPES = [
-  { value: 'text', label: 'Single-line Text' },
-  { value: 'textarea', label: 'Multi-line Text' },
-  { value: 'number', label: 'Number' },
-  { value: 'select', label: 'Dropdown Select' },
-  { value: 'checkbox', label: 'Checkbox' },
-  { value: 'file', label: 'File Upload' },
-  { value: 'repeatable', label: 'Repeatable Group (for multiple targets/sources)' },
+  { value: 'text', label: '单行文本' },
+  { value: 'textarea', label: '多行文本' },
+  { value: 'number', label: '数字' },
+  { value: 'select', label: '下拉选择' },
+  { value: 'checkbox', label: '复选框' },
+  { value: 'file', label: '文件上传' },
+  { value: 'repeatable', label: '可重复分组（多个目标）' },
 ];
 
 // Phase options
 const PHASE_OPTIONS = [
-  { value: 'phase1', label: 'Phase 1' },
-  { value: 'phase2', label: 'Phase 2' },
+  { value: 'phase1', label: '申请阶段' },
+  { value: 'phase2', label: '补充材料阶段' },
 ];
 
 export default function FormManagementPage() {
@@ -82,7 +83,7 @@ export default function FormManagementPage() {
         console.log('Loaded external tool operations:', allOperations);
         setExternalToolOperations(allOperations);
       } catch (err) {
-        setError('Failed to load data');
+        setError('表单配置数据加载失败');
         console.error(err);
       }
     };
@@ -103,7 +104,7 @@ export default function FormManagementPage() {
         setCurrentTemplate(data);
         setFields(data.definition?.fields || []);
       } catch (err) {
-        setError(`Failed to load form template`);
+        setError('表单模板加载失败');
         console.error(err);
       } finally {
         setIsLoading(false);
@@ -118,12 +119,12 @@ export default function FormManagementPage() {
     setError('');
 
     if (!newFormName.trim()) {
-      setError('Form name is required');
+      setError('表单名称不能为空');
       return;
     }
 
     if (fields.length === 0) {
-      setError('At least one field is required');
+      setError('至少需要添加一个字段');
       return;
     }
 
@@ -145,7 +146,7 @@ export default function FormManagementPage() {
       };
 
       const result = await createFormTemplate(templateData);
-      setSuccess(`Form template "${newFormName}" created successfully! (v${result.version})`);
+      setSuccess(`表单模板“${newFormName}”创建成功（版本 ${result.version}）`);
       setNewFormName('');
       setNewFormPhase('phase1');
       setNewFormInstrument('');
@@ -159,7 +160,7 @@ export default function FormManagementPage() {
         setSelectedTemplateId(result.id);
       }
     } catch (err) {
-      setError(err.info?.message || 'Failed to create form template');
+      setError(err.info?.message || '表单模板创建失败');
       console.error(err);
     }
   };
@@ -183,9 +184,9 @@ export default function FormManagementPage() {
       await updateFormTemplate(currentTemplate.id, {
         definition: { fields: fieldsToSave },
       });
-      setSuccess('Form template updated successfully!');
+      setSuccess('表单模板更新成功');
     } catch (err) {
-      setError(err.info?.message || 'Failed to update form template');
+      setError(err.info?.message || '表单模板更新失败');
       console.error(err);
     }
   };
@@ -193,7 +194,7 @@ export default function FormManagementPage() {
   const addField = () => {
     const newField = {
       name: `field_${Date.now()}`,
-      label: 'New Field',
+      label: '新字段',
       type: 'text',
       required: false,
     };
@@ -236,7 +237,7 @@ export default function FormManagementPage() {
     }
     newFields[fieldIndex].options.push({
       value: `option_${Date.now()}`,
-      label: 'New Option',
+      label: '新选项',
     });
     setFields(newFields);
   };
@@ -260,12 +261,12 @@ export default function FormManagementPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold">Form Template Management</h1>
+      <h1 className="text-3xl font-bold">表单模板管理</h1>
 
       {/* Create new form section */}
       <div className="bg-white shadow-md rounded-lg p-6">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">Create New Form Template</h2>
+          <h2 className="text-xl font-semibold">创建表单模板</h2>
           <button
             onClick={() => {
               setShowCreateForm(!showCreateForm);
@@ -276,7 +277,7 @@ export default function FormManagementPage() {
             }}
             className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
           >
-            {showCreateForm ? 'Cancel' : '+ New Form'}
+            {showCreateForm ? '取消' : '+ 新建表单'}
           </button>
         </div>
 
@@ -286,7 +287,7 @@ export default function FormManagementPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700">
-                  Form Name *
+                  表单名称 *
                 </label>
                 <input
                   type="text"
@@ -294,12 +295,12 @@ export default function FormManagementPage() {
                   value={newFormName}
                   onChange={(e) => setNewFormName(e.target.value)}
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  placeholder="e.g., Imaging Observation Form"
+                  placeholder="例如：低频成像观测表单"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">
-                  Phase *
+                  阶段 *
                 </label>
                 <select
                   value={newFormPhase}
@@ -315,14 +316,14 @@ export default function FormManagementPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700">
-                  Associated Instrument (optional)
+                  关联仪器（可选）
                 </label>
                 <select
                   value={newFormInstrument}
                   onChange={(e) => setNewFormInstrument(e.target.value)}
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                 >
-                  <option value="">General Form</option>
+                  <option value="">通用表单</option>
                   {instruments.map((inst) => (
                     <option key={inst.code} value={inst.code}>
                       {inst.code} - {inst.name}
@@ -335,18 +336,18 @@ export default function FormManagementPage() {
             {/* Field editor */}
             <div>
               <div className="flex justify-between items-center mb-3">
-                <h3 className="text-lg font-medium">Form Fields</h3>
+                <h3 className="text-lg font-medium">表单字段</h3>
                 <button
                   type="button"
                   onClick={addField}
                   className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
                 >
-                  + Add Field
+                  + 添加字段
                 </button>
               </div>
 
               {fields.length === 0 ? (
-                <p className="text-gray-500 text-sm">No fields yet. Click "Add Field" to start.</p>
+                <p className="text-gray-500 text-sm">暂无字段，请点击“添加字段”。</p>
               ) : (
                 <div className="space-y-3">
                   {fields.map((field, index) => (
@@ -379,7 +380,7 @@ export default function FormManagementPage() {
               type="submit"
               className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
             >
-              Create Form Template
+              创建表单模板
             </button>
           </form>
         )}
@@ -387,21 +388,21 @@ export default function FormManagementPage() {
 
       {/* Edit existing form section */}
       <div className="bg-white shadow-md rounded-lg p-6">
-        <h2 className="text-xl font-semibold mb-4">Edit Form Template</h2>
+        <h2 className="text-xl font-semibold mb-4">编辑表单模板</h2>
         
         <div className="mb-4">
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Select a form template to edit:
+            选择要编辑的表单模板：
           </label>
           <select
             className="mt-1 block w-full pl-3 pr-10 py-2 text-base border border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
             value={selectedTemplateId}
             onChange={(e) => setSelectedTemplateId(e.target.value)}
           >
-            <option value="">-- Select a form template --</option>
+            <option value="">请选择表单模板</option>
             {templates.map((t) => (
               <option key={t.id} value={t.id}>
-                {t.name} (v{t.version}) - {t.phase} 
+                {t.name}（版本 {t.version}）- {translatePhase(t.phase)}
                 {t.instrument && ` - ${t.instrument}`}
               </option>
             ))}
@@ -412,33 +413,33 @@ export default function FormManagementPage() {
         {success && <p className="text-green-500 bg-green-100 p-3 rounded mb-4">{success}</p>}
 
         {isLoading ? (
-          <p>Loading...</p>
+          <p>正在加载…</p>
         ) : currentTemplate ? (
           <div className="space-y-4">
             <div className="bg-gray-50 p-4 rounded">
-              <h3 className="font-medium mb-2">Template Info</h3>
+              <h3 className="font-medium mb-2">模板信息</h3>
               <div className="grid grid-cols-2 gap-2 text-sm">
-                <div><span className="font-medium">Name:</span> {currentTemplate.name}</div>
-                <div><span className="font-medium">Version:</span> v{currentTemplate.version}</div>
-                <div><span className="font-medium">Phase:</span> {currentTemplate.phase}</div>
-                <div><span className="font-medium">Instrument:</span> {currentTemplate.instrument || 'General'}</div>
+                <div><span className="font-medium">名称：</span>{currentTemplate.name}</div>
+                <div><span className="font-medium">版本：</span>{currentTemplate.version}</div>
+                <div><span className="font-medium">阶段：</span>{translatePhase(currentTemplate.phase)}</div>
+                <div><span className="font-medium">仪器：</span>{currentTemplate.instrument || '通用'}</div>
               </div>
             </div>
 
             <div>
               <div className="flex justify-between items-center mb-3">
-                <h3 className="text-lg font-medium">Form Fields</h3>
+                <h3 className="text-lg font-medium">表单字段</h3>
                 <button
                   type="button"
                   onClick={addField}
                   className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm"
                 >
-                  + Add Field
+                  + 添加字段
                 </button>
               </div>
 
               {fields.length === 0 ? (
-                <p className="text-gray-500 text-sm">No fields</p>
+                <p className="text-gray-500 text-sm">暂无字段</p>
               ) : (
                 <div className="space-y-3">
                   {fields.map((field, index) => (
@@ -471,11 +472,11 @@ export default function FormManagementPage() {
               onClick={handleUpdateTemplate}
               className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
             >
-              Save Changes
+              保存修改
             </button>
           </div>
         ) : (
-          <p className="text-gray-500">Please select a form template to start editing.</p>
+          <p className="text-gray-500">请选择一个表单模板开始编辑。</p>
         )}
       </div>
     </div>
@@ -508,16 +509,16 @@ function FieldEditor({
           <div className="flex-1">
             <div className="font-medium">{field.label}</div>
             <div className="text-sm text-gray-600">
-              Type: {FIELD_TYPES.find(t => t.value === field.type)?.label || field.type} | 
-              Field name: {field.name} | 
-              {field.required ? 'Required' : 'Optional'}
+              类型：{FIELD_TYPES.find(t => t.value === field.type)?.label || field.type} ｜
+              字段名称：{field.name} ｜
+              {field.required ? '必填' : '选填'}
             </div>
             {field.placeholder && (
-              <div className="text-sm text-gray-500">Placeholder: {field.placeholder}</div>
+              <div className="text-sm text-gray-500">占位提示：{field.placeholder}</div>
             )}
             {field.type === 'select' && field.options && (
               <div className="text-sm text-gray-600 mt-1">
-                Options: {field.options.map(o => o.label).join(', ')}
+                选项：{field.options.map(o => o.label).join('、')}
               </div>
             )}
           </div>
@@ -527,7 +528,7 @@ function FieldEditor({
                 type="button"
                 onClick={onMoveUp}
                 className="px-2 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded"
-                title="Move up"
+                title="上移"
               >
                 ↑
               </button>
@@ -537,7 +538,7 @@ function FieldEditor({
                 type="button"
                 onClick={onMoveDown}
                 className="px-2 py-1 text-sm bg-gray-200 hover:bg-gray-300 rounded"
-                title="Move down"
+                title="下移"
               >
                 ↓
               </button>
@@ -547,14 +548,14 @@ function FieldEditor({
               onClick={onEdit}
               className="px-2 py-1 text-sm bg-blue-100 hover:bg-blue-200 rounded"
             >
-              Edit
+              编辑
             </button>
             <button
               type="button"
               onClick={onDelete}
               className="px-2 py-1 text-sm bg-red-100 hover:bg-red-200 text-red-700 rounded"
             >
-              Delete
+              删除
             </button>
           </div>
         </div>
@@ -563,7 +564,7 @@ function FieldEditor({
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-700">Field Name</label>
+              <label className="block text-xs font-medium text-gray-700">字段名称</label>
               <input
                 type="text"
                 value={field.name}
@@ -572,7 +573,7 @@ function FieldEditor({
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700">Display Label</label>
+              <label className="block text-xs font-medium text-gray-700">显示标签</label>
               <input
                 type="text"
                 value={field.label}
@@ -584,7 +585,7 @@ function FieldEditor({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-700">Field Type</label>
+              <label className="block text-xs font-medium text-gray-700">字段类型</label>
               <select
                 value={field.type}
                 onChange={(e) => onUpdate({ type: e.target.value })}
@@ -605,13 +606,13 @@ function FieldEditor({
                   onChange={(e) => onUpdate({ required: e.target.checked })}
                   className="mr-2"
                 />
-                Required Field
+                必填字段
               </label>
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-700">Placeholder</label>
+            <label className="block text-xs font-medium text-gray-700">占位提示</label>
             <input
               type="text"
               value={field.placeholder || ''}
@@ -622,7 +623,7 @@ function FieldEditor({
 
           {/* External Tool Association */}
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">External Tool (Optional)</label>
+            <label className="block text-xs font-medium text-gray-700 mb-1">外部工具（可选）</label>
             <select
               value={field.external_tool_operation_id || ''}
               onChange={(e) => {
@@ -631,7 +632,7 @@ function FieldEditor({
               }}
               className="mt-1 block w-full px-2 py-1 text-sm border border-gray-300 rounded"
             >
-              <option value="">-- No external tool --</option>
+              <option value="">不关联外部工具</option>
               {externalToolOperations.map((op) => (
                 <option key={op.id} value={op.id}>
                   {op.toolName} - {op.name}
@@ -639,19 +640,19 @@ function FieldEditor({
               ))}
             </select>
             <p className="mt-1 text-xs text-gray-500">
-              Associate an external tool (e.g., visibility checker) with this field. Users can click a button to call the tool while filling the form.
+              可将外部工具（如可见性计算器）关联到此字段，用户填写表单时可直接调用。
             </p>
             {field.external_tool_operation_id && (
               <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs">
-                <span className="text-blue-700">🔧 Tool associated: </span>
-                {externalToolOperations.find(o => o.id === field.external_tool_operation_id)?.name || 'Unknown'}
+                <span className="text-blue-700">已关联工具：</span>
+                {externalToolOperations.find(o => o.id === field.external_tool_operation_id)?.name || '未知工具'}
               </div>
             )}
           </div>
 
           {field.type === 'textarea' && (
             <div>
-              <label className="block text-xs font-medium text-gray-700">Rows</label>
+              <label className="block text-xs font-medium text-gray-700">行数</label>
               <input
                 type="number"
                 value={field.rows || 4}
@@ -666,13 +667,13 @@ function FieldEditor({
           {field.type === 'select' && (
             <div>
               <div className="flex justify-between items-center mb-2">
-                <label className="block text-xs font-medium text-gray-700">Options</label>
+                <label className="block text-xs font-medium text-gray-700">选项</label>
                 <button
                   type="button"
                   onClick={onAddOption}
                   className="px-2 py-1 text-xs bg-green-100 hover:bg-green-200 rounded"
                 >
-                  + Add Option
+                  + 添加选项
                 </button>
               </div>
               {field.options && field.options.length > 0 ? (
@@ -685,7 +686,7 @@ function FieldEditor({
                         onChange={(e) =>
                           onUpdateOption(optIdx, { value: e.target.value })
                         }
-                        placeholder="Value"
+                        placeholder="选项值"
                         className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded"
                       />
                       <input
@@ -694,7 +695,7 @@ function FieldEditor({
                         onChange={(e) =>
                           onUpdateOption(optIdx, { label: e.target.value })
                         }
-                        placeholder="Display text"
+                        placeholder="显示文字"
                         className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded"
                       />
                       <button
@@ -702,13 +703,13 @@ function FieldEditor({
                         onClick={() => onDeleteOption(optIdx)}
                         className="px-2 py-1 text-xs bg-red-100 hover:bg-red-200 text-red-700 rounded"
                       >
-                        Delete
+                        删除
                       </button>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-gray-500">No options yet</p>
+                <p className="text-xs text-gray-500">暂无选项</p>
               )}
             </div>
           )}
@@ -717,12 +718,11 @@ function FieldEditor({
             <div className="border-t pt-3 mt-3">
               <div className="bg-purple-50 p-3 rounded mb-3">
                 <p className="text-xs text-purple-700">
-                  <strong>Repeatable Group:</strong> Users can add multiple instances of this group.
-                  For example, define fields for one target source, and users can add as many sources as needed.
+                  <strong>可重复分组：</strong>用户可以添加多个观测目标。例如先定义一个目标的字段，再按需添加多个目标。
                 </p>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700">Min Entries</label>
+                <label className="block text-xs font-medium text-gray-700">最少条目数</label>
                 <input
                   type="number"
                   value={field.minEntries || 1}
@@ -733,7 +733,7 @@ function FieldEditor({
                 />
               </div>
               <div className="mt-2">
-                <label className="block text-xs font-medium text-gray-700">Max Entries (0 = unlimited)</label>
+                <label className="block text-xs font-medium text-gray-700">最多条目数（0 表示不限）</label>
                 <input
                   type="number"
                   value={field.maxEntries || 0}
@@ -745,7 +745,7 @@ function FieldEditor({
               </div>
               <div className="mt-3">
                 <div className="flex justify-between items-center mb-2">
-                  <label className="block text-xs font-medium text-gray-700">Sub-fields in each entry</label>
+                  <label className="block text-xs font-medium text-gray-700">每个条目包含的子字段</label>
                   <button
                     type="button"
                     onClick={() => {
@@ -753,20 +753,18 @@ function FieldEditor({
                       onUpdate({
                         subFields: [
                           ...subFields,
-                          { name: `subfield_${Date.now()}`, label: 'New Sub-field', type: 'text', required: false }
+                          { name: `subfield_${Date.now()}`, label: '新子字段', type: 'text', required: false }
                         ]
                       });
                     }}
                     className="px-2 py-1 text-xs bg-purple-100 hover:bg-purple-200 rounded"
                   >
-                    + Add Sub-field
+                    + 添加子字段
                   </button>
                 </div>
                 <div className="bg-yellow-50 border border-yellow-200 p-2 rounded mb-2">
                   <p className="text-xs text-yellow-700">
-                    💡 <strong>Tip:</strong> Use "📋 Instrument Parameters" type to embed the instrument-specific 
-                    observation parameters form. The system will automatically load the form template associated 
-                    with each instrument selected in the proposal.
+                    <strong>提示：</strong>使用“仪器参数”类型可嵌入仪器专用观测参数表单，系统会自动加载提案所选仪器关联的模板。
                   </p>
                 </div>
                 {(field.subFields || field.sub_fields) && (field.subFields || field.sub_fields).length > 0 ? (
@@ -783,7 +781,7 @@ function FieldEditor({
                               newSubFields[subIdx] = { ...newSubFields[subIdx], name: e.target.value };
                               onUpdate({ subFields: newSubFields });
                             }}
-                            placeholder="Field name"
+                            placeholder="字段名称"
                             className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded"
                           />
                           <input
@@ -795,7 +793,7 @@ function FieldEditor({
                               newSubFields[subIdx] = { ...newSubFields[subIdx], label: e.target.value };
                               onUpdate({ subFields: newSubFields });
                             }}
-                            placeholder="Display label"
+                            placeholder="显示标签"
                             className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded"
                           />
                           <select
@@ -808,11 +806,11 @@ function FieldEditor({
                             }}
                             className="px-2 py-1 text-xs border border-gray-300 rounded"
                           >
-                            <option value="text">Text</option>
-                            <option value="number">Number</option>
-                            <option value="textarea">Textarea</option>
-                            <option value="select">Select</option>
-                            <option value="instrument_params">📋 Instrument Parameters</option>
+                            <option value="text">文本</option>
+                            <option value="number">数字</option>
+                            <option value="textarea">多行文本</option>
+                            <option value="select">下拉选择</option>
+                            <option value="instrument_params">仪器参数</option>
                           </select>
                           <label className="flex items-center text-xs">
                             <input
@@ -826,7 +824,7 @@ function FieldEditor({
                               }}
                               className="mr-1"
                             />
-                            Req
+                            必填
                           </label>
                           <button
                             type="button"
@@ -842,7 +840,7 @@ function FieldEditor({
                         </div>
                         {/* Sub-field external tool association */}
                         <div className="mt-1 ml-2 p-2 bg-gray-50 rounded border border-gray-200">
-                          <label className="block text-xs text-gray-600 mb-1">External Tool:</label>
+                          <label className="block text-xs text-gray-600 mb-1">外部工具：</label>
                           <select
                             value={subField.external_tool_operation_id || ''}
                             onChange={(e) => {
@@ -854,7 +852,7 @@ function FieldEditor({
                             }}
                             className="w-full px-2 py-1 text-xs border border-gray-300 rounded"
                           >
-                            <option value="">-- No tool --</option>
+                            <option value="">不关联工具</option>
                             {externalToolOperations.map((op) => (
                               <option key={op.id} value={op.id}>
                                 {op.toolName} - {op.name}
@@ -863,7 +861,7 @@ function FieldEditor({
                           </select>
                           {subField.external_tool_operation_id && (
                             <div className="mt-1 text-xs text-blue-600">
-                              🔧 {externalToolOperations.find(o => o.id === subField.external_tool_operation_id)?.name || 'Unknown'}
+                              {externalToolOperations.find(o => o.id === subField.external_tool_operation_id)?.name || '未知工具'}
                             </div>
                           )}
                         </div>
@@ -871,7 +869,7 @@ function FieldEditor({
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs text-gray-500">No sub-fields defined. Add fields like: source_name, ra, dec, exposure_time, etc.</p>
+                  <p className="text-xs text-gray-500">暂无子字段，可添加目标名称、赤经、赤纬和观测时间等字段。</p>
                 )}
               </div>
             </div>
@@ -883,7 +881,7 @@ function FieldEditor({
               onClick={onCollapse}
               className="px-3 py-1 text-sm bg-indigo-600 text-white hover:bg-indigo-700 rounded"
             >
-              Done Editing
+              完成编辑
             </button>
           </div>
         </div>

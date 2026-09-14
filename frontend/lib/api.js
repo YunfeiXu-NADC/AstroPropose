@@ -39,7 +39,7 @@ async function fetcher(path, options = {}) {
   if (!res.ok) {
     const error = new Error(
       (data && typeof data === 'object' && data.message) ||
-        'An error occurred while fetching the data.'
+        '请求失败，请稍后重试。'
     );
     error.info = data;
     error.status = res.status;
@@ -98,6 +98,10 @@ export async function getProposals(params = {}) {
   return fetcher(`/api/proposals/${buildQuery(params)}`);
 }
 
+export async function getProposal(proposalId, params = {}) {
+  return fetcher(`/api/proposals/${proposalId}${buildQuery(params)}`);
+}
+
 export async function createProposal(proposalData) {
   return post('/api/proposals/', proposalData);
 }
@@ -108,6 +112,18 @@ export async function listProposalTransitions(proposalId) {
 
 export async function triggerProposalTransition(proposalId, payload) {
   return post(`/api/proposals/${proposalId}/transitions`, payload);
+}
+
+export async function submitProposalReview(proposalId, payload) {
+  return post(`/api/proposals/${proposalId}/reviews`, payload);
+}
+
+export async function updateProposal(proposalId, payload) {
+  return patch(`/api/proposals/${proposalId}`, payload);
+}
+
+export async function assignProposalReviewer(proposalId, payload) {
+  return post(`/api/proposals/${proposalId}/reviewers`, payload);
 }
 
 export async function submitInstrumentFeedbackAPI(proposalId, instrumentCode, payload) {
