@@ -14,6 +14,7 @@ import {
   updateProposalType,
 } from '@/lib/api';
 import WorkflowEditor from '@/components/WorkflowEditor';
+import ListPageHeader from '@/components/ListPageHeader';
 import { bindDslForms, DSL_FORM_PRESETS, DSL_WORKFLOW_PRESETS } from '@/lib/dslWorkflowPresets.mjs';
 
 export default function WorkflowPage() {
@@ -185,73 +186,51 @@ export default function WorkflowPage() {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="rps-enter mx-auto max-w-[1450px] space-y-5">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <div>
-          <p className="rps-eyebrow">系统配置</p>
-          <h1 className="mt-2 text-3xl font-bold">流程管理</h1>
-          <p className="mt-2 text-sm text-slate-600">配置提案状态、角色权限、表单与流转操作。</p>
-        </div>
-        <button
-          type="button"
-          onClick={installDslPresets}
-          disabled={installingPresets}
-          className="rps-button-primary disabled:cursor-wait disabled:opacity-60"
-        >
-          {installingPresets ? '正在安装…' : '安装 / 更新 DSL 双流程'}
-        </button>
-      </div>
-      
-      {/* Create new workflow section */}
-      <div className="bg-white shadow-md rounded-lg p-6">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold">创建新流程</h2>
-          <button
-            onClick={() => setShowCreateForm(!showCreateForm)}
-            className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
-          >
-            {showCreateForm ? '取消' : '+ 新建流程'}
+        <ListPageHeader title="流程管理" />
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => setShowCreateForm(!showCreateForm)} className="rps-button-secondary">
+            {showCreateForm ? '取消新建' : '+ 新建流程'}
+          </button>
+          <button type="button" onClick={installDslPresets} disabled={installingPresets} className="rps-button-primary disabled:cursor-wait disabled:opacity-60">
+            {installingPresets ? '正在安装…' : '安装 / 更新 DSL 双流程'}
           </button>
         </div>
-        
-        {showCreateForm && (
-          <form onSubmit={handleCreate} className="space-y-4">
-            <div>
-              <label htmlFor="workflow-name" className="block text-sm font-medium text-gray-700">
-                流程名称 *
-              </label>
+      </div>
+
+      {showCreateForm && (
+        <form onSubmit={handleCreate} className="grid gap-3 border-y border-slate-200 bg-white px-4 py-4 md:grid-cols-[minmax(220px,0.7fr)_minmax(320px,1fr)_auto] md:items-end">
+            <label htmlFor="workflow-name" className="block">
+              <span className="mb-1 block text-xs font-medium text-gray-700">流程名称 *</span>
               <input
                 id="workflow-name"
                 type="text"
                 required
                 value={newWorkflowName}
                 onChange={(e) => setNewWorkflowName(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                className="rps-field"
                 placeholder="例如：鸿蒙研究提案流程"
               />
-            </div>
-            <div>
-              <label htmlFor="workflow-description" className="block text-sm font-medium text-gray-700">
-                说明
-              </label>
-              <textarea
+            </label>
+            <label htmlFor="workflow-description" className="block">
+              <span className="mb-1 block text-xs font-medium text-gray-700">说明</span>
+              <input
                 id="workflow-description"
-                rows={3}
                 value={newWorkflowDescription}
                 onChange={(e) => setNewWorkflowDescription(e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                className="rps-field"
                 placeholder="说明该流程的用途"
               />
-            </div>
+            </label>
             <button
               type="submit"
-              className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+              className="rps-button-primary"
             >
               创建流程
             </button>
-          </form>
-        )}
-      </div>
+        </form>
+      )}
 
       {/* Edit existing workflow section */}
       <div className="bg-white shadow-md rounded-lg p-6">

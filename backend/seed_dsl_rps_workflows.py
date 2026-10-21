@@ -5,7 +5,8 @@ import subprocess
 from pathlib import Path
 
 from app import create_app, db
-from app.models.models import FormTemplate, Instrument, ProposalType, Workflow, WorkflowState
+from app.models.models import FormTemplate, Instrument, ProposalType, Workflow
+from app.api.workflows import _sync_workflow_states_from_definition
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -27,25 +28,7 @@ def load_presets():
 
 
 def sync_states(workflow, definition):
-    desired = [node["data"]["label"] for node in definition.get("nodes", [])]
-    existing = {state.name: state for state in workflow.states.all()}
-
-    for node in definition.get("nodes", []):
-        data = node.get("data") or {}
-        name = data.get("label")
-        if not name:
-            continue
-        state = existing.get(name)
-        if state is None:
-            state = WorkflowState(name=name, workflow=workflow)
-            db.session.add(state)
-        state.description = data.get("description")
-        state.form_template_id = data.get("formTemplateId")
-        state.form_required = bool(data.get("formRequired", False))
-
-    for name, state in existing.items():
-        if name not in desired and state.proposals.count() == 0:
-            db.session.delete(state)
+    _sync_workflow_states_from_definition(workflow, definition)
 
 
 def install():
@@ -69,6 +52,12 @@ def install():
             if preset.get("instrument_code"):
                 instrument = Instrument.query.filter_by(code=preset["instrument_code"]).one()
             template = FormTemplate.query.filter_by(name=preset["name"]).first()
+            legacy_form_names = {
+                'rapid_scientific_review': 'DSL 快速科学评审表',
+                'committee_decision': 'DSL 委员会决策表',
+            }
+            if template is None and preset["key"] in legacy_form_names:
+                template = FormTemplate.query.filter_by(name=legacy_form_names[preset["key"]]).first()
             if template is None:
                 template = FormTemplate(name=preset["name"])
                 db.session.add(template)

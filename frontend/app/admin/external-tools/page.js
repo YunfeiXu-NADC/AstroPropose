@@ -12,6 +12,8 @@ import {
   updateToolOperation,
   testToolOperation,
 } from '@/lib/api';
+import ListPageHeader from '@/components/ListPageHeader';
+import ListPageToolbar from '@/components/ListPageToolbar';
 
 const AUTH_TYPES = [
   { value: 'none', label: '无需认证' },
@@ -186,22 +188,14 @@ export default function ExternalToolsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">外部工具</h1>
-            <p className="text-gray-600 mt-1">
-              注册并管理流程自动化所需的外部接口
-            </p>
-          </div>
-          <button
-            onClick={() => setShowNewToolForm(true)}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition"
-          >
-            + 注册外部工具
+    <div className="rps-enter mx-auto max-w-[1450px]">
+      <div className="space-y-5">
+        <ListPageHeader title="外部工具" />
+        <ListPageToolbar>
+          <button type="button" onClick={() => setShowNewToolForm(true)} className="rps-button-primary shrink-0">
+            注册外部工具
           </button>
-        </div>
+        </ListPageToolbar>
 
         {error && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">

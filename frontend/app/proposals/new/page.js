@@ -9,7 +9,6 @@ import {
   CheckIcon,
   ClockIcon,
   DocumentArrowUpIcon,
-  DocumentTextIcon,
   EyeIcon,
   GlobeAltIcon,
   InformationCircleIcon,
@@ -22,13 +21,16 @@ import {
 import {
   createProposal,
   executeToolOperationFromForm,
+  getCurrentUser,
   getFormTemplate,
+  getProposal,
   getProposalTypes,
   getWorkflow,
   listFormTemplates,
   listInstruments,
   listProposalTransitions,
   triggerProposalTransition,
+  updateProposal,
 } from '@/lib/api';
 import WorkflowProgress from '@/components/WorkflowProgress';
 import { resolvePhase1TemplateId } from '@/lib/proposalFormConfig.mjs';
@@ -39,11 +41,14 @@ import {
   getWorkflowStages,
 } from '@/lib/workflowDisplay.mjs';
 
-const CREATION_STEPS = ['选择类型', '基本信息', '观测目标', '申请材料', '确认提交'];
+const CREATION_STEPS = ['选择类型', '摘要与申请内容', '观测目标与仪器', '附件', '确认提交'];
 const FALLBACK_INSTRUMENTS = [
   { code: 'LF', name: '低频阵列', description: '0.1–30 MHz 成像', previewOnly: true },
   { code: 'HF', name: '高频阵列', description: '0.1–120 MHz 频谱', previewOnly: true },
 ];
+
+const countCharacters = (value) => Array.from(String(value || '').replace(/\s/g, '')).length;
+const hasValue = (value) => value !== undefined && value !== null && String(value).trim() !== '';
 
 const emptyPhaseState = () => ({ meta: {}, attachments: {} });
 
@@ -64,6 +69,7 @@ function serializeFile(file) {
 
 function getFieldStep(field) {
   if (field.type === 'file') return 3;
+  if (field.name === 'technical_summary') return 2;
   if (field.type === 'repeatable' || /target|目标|ra|dec|observation|观测|time|时间|window|窗口/i.test(field.name || field.label || '')) {
     return 2;
   }
@@ -84,7 +90,7 @@ function SimpleField({ field, value, onChange, onFileChange }) {
   let control;
 
   if (field.type === 'textarea') {
-    control = <textarea id={field.name} name={field.name} rows={field.rows || 4} required={field.required} value={value ?? ''} onChange={onChange} className="rps-field resize-y" />;
+    control = <textarea id={field.name} name={field.name} rows={Math.max(field.rows || 4, 7)} required={field.required} value={value ?? ''} onChange={onChange} className="rps-field resize-y leading-7" />;
   } else if (field.type === 'select') {
     control = (
       <select id={field.name} name={field.name} required={field.required} value={value ?? ''} onChange={onChange} className="rps-field">
@@ -119,6 +125,7 @@ function SimpleField({ field, value, onChange, onFileChange }) {
       <FieldLabel field={field} />
       {control}
       {helpText && <p className="mt-1.5 text-xs leading-5 text-slate-500">{helpText}</p>}
+      {field.type === 'textarea' && <p className="mt-1 text-xs text-slate-500">已写 {countCharacters(value)} 字{field.recommended_length ? ` · 建议 ${field.recommended_length} 字` : ''}，支持分段输入</p>}
     </div>
   );
 }
@@ -211,7 +218,7 @@ function RepeatableField({ field, value, onChange, selectedInstruments, instrume
                       )}
                     </div>
                     {subField.type === 'textarea' ? (
-                      <textarea value={entry[subField.name] ?? ''} onChange={(event) => update(entryIndex, subField.name, event.target.value)} rows={3} required={subField.required} className="rps-field" />
+                      <textarea value={entry[subField.name] ?? ''} onChange={(event) => update(entryIndex, subField.name, event.target.value)} rows={4} required={subField.required} className="rps-field resize-y leading-7" />
                     ) : subField.type === 'select' ? (
                       <select value={entry[subField.name] ?? ''} onChange={(event) => update(entryIndex, subField.name, event.target.value)} required={subField.required} className="rps-field">
                         <option value="">请选择</option>
@@ -272,6 +279,7 @@ export default function NewProposalPage() {
   const [instrumentTemplates, setInstrumentTemplates] = useState({});
   const [selectedWorkflow, setSelectedWorkflow] = useState(null);
   const [selectedProposalType, setSelectedProposalType] = useState('');
+  const [draftId, setDraftId] = useState(null);
   const [selectedInstruments, setSelectedInstruments] = useState([]);
   const [phaseState, setPhaseState] = useState({ phase1: emptyPhaseState() });
   const [instrumentState, setInstrumentState] = useState({});
@@ -291,15 +299,41 @@ export default function NewProposalPage() {
   useEffect(() => {
     async function bootstrap() {
       try {
-        const [types, instrumentList] = await Promise.all([getProposalTypes(), listInstruments()]);
+        const requestedDraftId = new URLSearchParams(window.location.search).get('draft');
+        const [, types, instrumentList, savedDraft] = await Promise.all([
+          getCurrentUser(), getProposalTypes(), listInstruments(),
+          requestedDraftId ? getProposal(requestedDraftId) : Promise.resolve(null),
+        ]);
         const dslTypes = (types || []).filter((item) => item.name?.startsWith('DSL '));
         const availableTypes = dslTypes.length ? dslTypes : (types || []);
         setProposalTypes(availableTypes);
         setInstruments(instrumentList || []);
-        if (availableTypes.length) setSelectedProposalType(String(availableTypes[0].id));
+        if (savedDraft) {
+          if (!savedDraft.permissions?.is_owner || !['草稿', 'Draft'].includes(savedDraft.status)) {
+            throw new Error('此提案不是可继续编辑的本人草稿。');
+          }
+          setDraftId(savedDraft.id);
+          setSelectedProposalType(String(savedDraft.proposal_type.id));
+          const phase = savedDraft.phases?.find((item) => item.phase === 'phase1')?.payload || {};
+          const { __attachments__: attachments = {}, ...meta } = phase;
+          setPhaseState({ phase1: { meta: {
+            ...meta,
+            title: savedDraft.title === '未命名提案' ? '' : savedDraft.title,
+            abstract: savedDraft.abstract || '',
+          }, attachments } });
+          setSelectedInstruments((savedDraft.instruments || []).map((item) => item.instrument.code));
+          setInstrumentState(Object.fromEntries((savedDraft.instruments || []).map((item) => {
+            const { __attachments__: files = {}, ...form } = item.form_data || {};
+            return [item.instrument.code, { form, attachments: files }];
+          })));
+          setNotice(savedDraft.data?.copied_from_proposal_id
+            ? `已从 RPS-${String(savedDraft.data.copied_from_proposal_id).padStart(5, '0')} 复制为新草稿；请核对内容并重新上传附件。`
+            : '已恢复本人草稿，可继续填写后保存或正式提交。');
+        } else if (availableTypes.length) {
+          setSelectedProposalType(String(availableTypes[0].id));
+        }
       } catch (bootstrapError) {
-        setSelectedProposalType(DEFAULT_PROPOSAL_TYPES[0].id);
-        setNotice('当前为界面预览；登录并完成后台配置后，提案类型、仪器和流程将自动替换为真实内容。');
+        setError(bootstrapError.info?.message || bootstrapError.message || '草稿或提案配置加载失败。');
       }
     }
     bootstrap();
@@ -351,15 +385,8 @@ export default function NewProposalPage() {
     });
   }, [selectedInstruments, instrumentTemplates, displayedInstruments]);
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      localStorage.setItem('rps-proposal-draft', JSON.stringify({ selectedProposalType, selectedInstruments, phaseState, instrumentState }));
-    }, 450);
-    return () => window.clearTimeout(timer);
-  }, [selectedProposalType, selectedInstruments, phaseState, instrumentState]);
-
   const workflowStages = useMemo(() => getWorkflowStages(selectedWorkflow?.definition), [selectedWorkflow]);
-  const generalFields = generalTemplate?.fields || [];
+  const generalFields = (generalTemplate?.fields || []).filter((field) => field.name !== 'rapid_plan');
   const fieldsForStep = (step) => generalFields.filter((field) => !['title', 'abstract'].includes(field.name) && getFieldStep(field) === step);
 
   const handlePhaseFieldChange = (event) => {
@@ -413,6 +440,53 @@ export default function NewProposalPage() {
     }));
   };
 
+  const currentPayload = () => buildProposalCreatePayload({ selectedProposalType, selectedInstruments, phaseState, instrumentState });
+  const draftUpdatePayload = () => ({
+    title: phaseState.phase1?.meta?.title || '',
+    abstract: phaseState.phase1?.meta?.abstract || '',
+    phase_payload: {
+      ...(phaseState.phase1?.meta || {}),
+      __attachments__: phaseState.phase1?.attachments || {},
+    },
+    instruments: selectedInstruments.map((code) => ({
+      instrument_code: code,
+      form_data: {
+        ...(instrumentState[code]?.form || {}),
+        __attachments__: instrumentState[code]?.attachments || {},
+      },
+    })),
+  });
+
+  const saveDraft = async () => {
+    if (!selectedType || selectedType.previewOnly) {
+      setError('请先选择有效的提案类型。');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      let savedId = draftId;
+      if (savedId) {
+        await updateProposal(savedId, draftUpdatePayload());
+      } else {
+        const payload = currentPayload();
+        const created = await createProposal({
+          ...payload,
+          save_as_draft: true,
+          instruments: payload.instruments.map((entry) => ({ ...entry, status: 'draft' })),
+        });
+        savedId = created.id;
+        setDraftId(savedId);
+        window.history.replaceState({}, '', `/proposals/new?draft=${savedId}`);
+      }
+      setNotice('草稿已保存到本人账号，可从工作区继续编辑；正式提交后显示提案编号。');
+    } catch (saveError) {
+      setError(saveError.info?.message || saveError.message || '草稿保存失败。');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError('');
@@ -424,8 +498,13 @@ export default function NewProposalPage() {
       setError('当前使用的是预览类型。请先登录，并在后台配置真实的提案类型、工作流和仪器。');
       return;
     }
-    if (!phaseState.phase1?.meta?.title) {
+    if (!hasValue(phaseState.phase1?.meta?.title)) {
       setError('请填写提案名称。');
+      setActiveStep(1);
+      return;
+    }
+    if (!hasValue(phaseState.phase1?.meta?.abstract)) {
+      setError('请填写摘要。');
       setActiveStep(1);
       return;
     }
@@ -434,14 +513,37 @@ export default function NewProposalPage() {
       setActiveStep(2);
       return;
     }
+    for (const field of generalFields.filter((item) => item.required)) {
+      const value = field.type === 'file' ? phaseState.phase1?.attachments?.[field.name] : phaseState.phase1?.meta?.[field.name];
+      const entries = field.type === 'repeatable' && Array.isArray(value) ? value : [];
+      const missing = field.type === 'repeatable'
+        ? entries.length < (field.minEntries ?? field.min_entries ?? 1) || entries.some((entry) => (field.subFields || field.sub_fields || []).some((subField) => subField.required && !hasValue(entry[subField.name])))
+        : field.type === 'file' ? !value?.data_url : field.type === 'checkbox' ? value !== true : !hasValue(value);
+      if (missing) {
+        setError(`请完整填写「${field.label}」。`);
+        setActiveStep(getFieldStep(field));
+        return;
+      }
+    }
+    for (const code of selectedInstruments) {
+      for (const field of (instrumentTemplates[code]?.fields || []).filter((item) => item.required)) {
+        const value = field.type === 'file' ? instrumentState[code]?.attachments?.[field.name] : instrumentState[code]?.form?.[field.name];
+        if (field.type === 'file' ? !value?.data_url : field.type === 'checkbox' ? value !== true : !hasValue(value)) {
+          setError(`请完整填写「${field.label}」。`);
+          setActiveStep(field.type === 'file' ? 3 : 2);
+          return;
+        }
+      }
+    }
 
     setLoading(true);
     try {
-      const result = await createProposal(buildProposalCreatePayload({ selectedProposalType, selectedInstruments, phaseState, instrumentState }));
-      const transitions = await listProposalTransitions(result.id);
+      const proposalId = draftId || (await createProposal(currentPayload())).id;
+      if (draftId) await updateProposal(draftId, draftUpdatePayload());
+      const transitions = await listProposalTransitions(proposalId);
       const submitPhase1 = (transitions.transitions || []).find((transition) => ['submit_phase1', 'submit'].includes(transition.name));
-      if (submitPhase1) await triggerProposalTransition(result.id, { transition: submitPhase1.name });
-      localStorage.removeItem('rps-proposal-draft');
+      if (!submitPhase1) throw new Error('提案已保存为草稿，但尚未找到正式提交操作。');
+      await triggerProposalTransition(proposalId, { transition: submitPhase1.name });
       router.push('/dashboard');
     } catch (submitError) {
       console.error(submitError);
@@ -473,7 +575,7 @@ export default function NewProposalPage() {
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">提交内容由后台表单配置决定，审批进展将按照绑定的工作流自动展示。</p>
         </div>
         <div className="flex items-center gap-2 text-xs text-slate-500">
-          <span className="rps-status-dot" /> 本地草稿自动保存
+          <button type="button" onClick={saveDraft} disabled={loading} className="rps-button-secondary">{loading ? '正在保存…' : draftId ? '保存草稿' : '保存为草稿'}</button>
         </div>
       </header>
 
@@ -518,35 +620,6 @@ export default function NewProposalPage() {
                     <SignalIcon className="mt-0.5 h-4 w-4 shrink-0 text-[#7899a7]" />
                     研究提案通过后进入数据分配；机遇目标通过后将评审结果推送至观测编排负责人。
                   </div>
-                  <div className="mt-7 border-t border-slate-200 pt-6">
-                    <div className="mb-4 flex flex-wrap items-center gap-3">
-                      <h3 className="text-sm font-semibold text-slate-900">基本信息</h3>
-                      <span className="text-xs text-slate-400">可先填写，后续步骤仍可修改</span>
-                    </div>
-                    <div className="grid gap-5 md:grid-cols-2">
-                      <div className="md:col-span-2">
-                        <label htmlFor="title-preview" className="mb-1.5 block text-sm font-semibold text-slate-700">提案名称 <span className="text-rose-600">*</span></label>
-                        <input id="title-preview" name="title" value={phaseState.phase1?.meta?.title || ''} onChange={handlePhaseFieldChange} placeholder="请输入提案名称" className="rps-field" />
-                      </div>
-                      <div className="md:col-span-2">
-                        <p className="mb-2 text-sm font-semibold text-slate-700">申请仪器设备</p>
-                        <div className="flex flex-wrap gap-2">
-                          {displayedInstruments.map((instrument) => {
-                            const selected = selectedInstruments.includes(instrument.code);
-                            return (
-                              <button key={instrument.code} type="button" onClick={() => toggleInstrument(instrument.code)} className={`rounded-lg border px-3 py-2 text-xs font-semibold ${selected ? 'border-[#3347b8] bg-[#3347b8]/[0.04] text-[#3347b8]' : 'border-slate-200 bg-white text-slate-600'}`}>
-                                {instrument.name} <span className="font-normal text-slate-400">{instrument.description}</span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                      <div className="md:col-span-2">
-                        <label htmlFor="abstract-preview" className="mb-1.5 block text-sm font-semibold text-slate-700">概述</label>
-                        <textarea id="abstract-preview" name="abstract" rows={3} value={phaseState.phase1?.meta?.abstract || ''} onChange={handlePhaseFieldChange} placeholder="简要说明科学目标和观测需求" className="rps-field resize-y" />
-                      </div>
-                    </div>
-                  </div>
                 </div>
               )}
 
@@ -557,8 +630,9 @@ export default function NewProposalPage() {
                     <input id="title" name="title" required value={phaseState.phase1?.meta?.title || ''} onChange={handlePhaseFieldChange} placeholder="请输入清晰、可识别的研究题目" className="rps-field" />
                   </div>
                   <div className="md:col-span-2">
-                    <label htmlFor="abstract" className="mb-1.5 block text-sm font-semibold text-slate-700">提案概述</label>
-                    <textarea id="abstract" name="abstract" rows={5} value={phaseState.phase1?.meta?.abstract || ''} onChange={handlePhaseFieldChange} placeholder="说明科学目标、研究价值和预期成果" className="rps-field resize-y" />
+                    <label htmlFor="abstract" className="mb-1.5 block text-sm font-semibold text-slate-700">摘要 <span className="text-rose-600">*</span></label>
+                    <textarea id="abstract" name="abstract" rows={10} required value={phaseState.phase1?.meta?.abstract || ''} onChange={handlePhaseFieldChange} placeholder="分段说明背景、科学目标、观测方法和预期成果" className="rps-field resize-y leading-7" />
+                    <p className="mt-1.5 text-xs text-slate-500">建议 400–600 字 · 已写 {countCharacters(phaseState.phase1?.meta?.abstract)} 字；较长内容不会截断</p>
                   </div>
                   {fieldsForStep(1).map((field) => <DynamicField key={field.name} {...dynamicFieldProps(field)} />)}
                   {!fieldsForStep(1).length && !generalTemplate && <p className="md:col-span-2 text-sm text-slate-500">选择提案类型后，这里将加载已配置的第一阶段表单字段。</p>}
@@ -602,11 +676,7 @@ export default function NewProposalPage() {
 
               {activeStep === 3 && (
                 <div className="space-y-6">
-                  <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 p-6 text-center">
-                    <DocumentTextIcon className="mx-auto h-9 w-9 text-[#7899a7]" />
-                    <h3 className="mt-3 text-sm font-semibold text-slate-900">申请材料</h3>
-                    <p className="mx-auto mt-1 max-w-md text-xs leading-5 text-slate-500">附件字段完全由表单模板决定。已上传文件会随提案保存，可在提案详情中下载。</p>
-                  </div>
+                  <p className="text-sm leading-6 text-slate-600">按表单要求上传附件。提交后仍可在提案详情下载原文件。</p>
                   <div className="grid gap-5 md:grid-cols-2">{fieldsForStep(3).map((field) => <DynamicField key={field.name} {...dynamicFieldProps(field)} />)}</div>
                   {selectedInstruments.map((code) => (instrumentTemplates[code]?.fields || []).filter((field) => field.type === 'file').map((field) => (
                     <DynamicField key={`${code}-${field.name}`} field={{ ...field, label: `${displayedInstruments.find((item) => item.code === code)?.name || code} · ${field.label}` }} value={instrumentState[code]?.attachments?.[field.name]} onChange={(event) => handleInstrumentFieldChange(code, event)} onFileChange={(name, file) => handleInstrumentFileChange(code, name, file)} />
@@ -625,8 +695,21 @@ export default function NewProposalPage() {
                   <div className="border-t border-slate-200 pt-6">
                     <p className="text-xs text-slate-500">提案名称</p>
                     <p className="mt-2 text-lg font-semibold text-slate-950">{phaseState.phase1?.meta?.title || '尚未填写'}</p>
-                    <p className="mt-2 text-sm leading-6 text-slate-600">{phaseState.phase1?.meta?.abstract || '尚未填写提案概述。'}</p>
+                    <p className="mt-2 max-w-[80ch] whitespace-pre-wrap break-words text-sm leading-7 text-slate-700">{phaseState.phase1?.meta?.abstract || '尚未填写摘要。'}</p>
                   </div>
+                  <details className="border-t border-slate-200 pt-5">
+                    <summary className="cursor-pointer text-sm font-semibold text-[#3347b8]">核对申请内容与附件</summary>
+                    <dl className="mt-4 grid gap-x-8 sm:grid-cols-2">
+                      {generalFields.filter((field) => field.type !== 'file').map((field) => {
+                        const value = phaseState.phase1?.meta?.[field.name];
+                        const entries = field.type === 'repeatable' && Array.isArray(value) ? value : [];
+                        const shown = field.type === 'select' ? field.options?.find((option) => option.value === value)?.label || value : value;
+                        return <div key={field.name} className={`border-b border-slate-100 py-3 ${field.type === 'textarea' || field.type === 'repeatable' ? 'sm:col-span-2' : ''}`}><dt className="text-xs text-slate-500">{field.label}</dt><dd className="mt-1 max-w-[80ch] whitespace-pre-wrap break-words text-sm leading-6 text-slate-800">{field.type === 'repeatable' ? entries.map((entry, index) => <div key={index} className="mt-2 border-l-2 border-slate-200 pl-3">{field.label} {index + 1}：{(field.subFields || field.sub_fields || []).map((subField) => `${subField.label} ${entry[subField.name] || '未填写'}`).join(' · ')}</div>) : shown || '未填写'}</dd></div>;
+                      })}
+                      {generalFields.filter((field) => field.type === 'file').map((field) => <div key={field.name} className="border-b border-slate-100 py-3 sm:col-span-2"><dt className="text-xs text-slate-500">{field.label}</dt><dd className="mt-1 text-sm text-slate-800">{phaseState.phase1?.attachments?.[field.name]?.name || '未上传'}</dd></div>)}
+                    </dl>
+                    {selectedInstruments.map((code) => <div key={code} className="mt-5 border-t border-slate-200 pt-4"><p className="text-sm font-semibold text-slate-900">{displayedInstruments.find((item) => item.code === code)?.name || code}</p><dl className="mt-2 grid gap-x-8 sm:grid-cols-2">{(instrumentTemplates[code]?.fields || []).map((field) => { const value = field.type === 'file' ? instrumentState[code]?.attachments?.[field.name]?.name : instrumentState[code]?.form?.[field.name]; const shown = field.type === 'select' ? field.options?.find((option) => option.value === value)?.label || value : value; return <div key={field.name} className="border-b border-slate-100 py-2"><dt className="text-xs text-slate-500">{field.label}</dt><dd className="mt-1 whitespace-pre-wrap break-words text-sm text-slate-800">{shown || '未填写'}</dd></div>; })}</dl></div>)}
+                  </details>
                   <div className="rounded-2xl bg-slate-50 p-5">
                     <p className="mb-5 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">提交后的评审进展</p>
                     <WorkflowProgress stages={workflowStages} currentStage={workflowStages[0]} compact />

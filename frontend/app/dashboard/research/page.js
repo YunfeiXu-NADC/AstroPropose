@@ -1,6 +1,6 @@
-import ProposalWorkspace from '@/components/ProposalWorkspace';
+import { redirect } from 'next/navigation';
 
 export default function ResearchProposalPage() {
-  return <ProposalWorkspace view="research" />;
+  redirect('/dashboard/proposals?type=research');
 }
 

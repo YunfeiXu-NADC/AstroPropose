@@ -59,3 +59,13 @@ def test_execute_transition_updates_state_and_phase(proposal, proposer):
     assert phase.status == "submitted"
     assert phase.submitted_at is not None
 
+
+def test_expert_can_submit_own_proposal_without_explicit_proposer_role(proposal, proposer):
+    reviewer_role = Role.query.filter_by(name="Reviewer").first()
+    proposer.roles = [reviewer_role]
+    db.session.commit()
+
+    engine = WorkflowEngine(db.session)
+    assert "submit_phase1" in {item["name"] for item in engine.get_allowed_actions(proposal.id, proposer)}
+    assert engine.execute_transition(proposal.id, "submit_phase1", proposer)["new_state"] == "Submitted"
+

@@ -16,6 +16,7 @@ dependencies = [
     "SQLAlchemy==1.4.39",
     "requests>=2.31.0",
     "pyyaml>=6.0",
+    "reportlab>=5.0.1",
 ]
 
 [tool.uv]

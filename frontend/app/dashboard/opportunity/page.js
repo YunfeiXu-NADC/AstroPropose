@@ -1,6 +1,6 @@
-import ProposalWorkspace from '@/components/ProposalWorkspace';
+import { redirect } from 'next/navigation';
 
 export default function OpportunityProposalPage() {
-  return <ProposalWorkspace view="opportunity" />;
+  redirect('/dashboard/proposals?type=opportunity');
 }
 

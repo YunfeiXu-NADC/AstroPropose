@@ -86,7 +86,12 @@ export async function register(userData) {
 }
 
 export async function getCurrentUser() {
-  return fetcher('/api/auth/me');
+  const user = await fetcher('/api/auth/me');
+  const roles = user.roles || [];
+  return {
+    ...user,
+    roles: roles.includes('Proposer') ? roles : ['Proposer', ...roles],
+  };
 }
 
 export async function changePassword(payload) {
@@ -102,8 +107,26 @@ export async function getProposal(proposalId, params = {}) {
   return fetcher(`/api/proposals/${proposalId}${buildQuery(params)}`);
 }
 
+export async function downloadProposalDocument(proposalId) {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  if (!token) throw new Error('登录已失效，请重新登录后下载。');
+  // A normal download link is more dependable than fetching a binary across
+  // the development-server origin. The endpoint validates the same login token.
+  const url = `${API_URL}/api/proposals/${proposalId}/document?access_token=${encodeURIComponent(token)}`;
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `RPS-${String(proposalId).padStart(5, '0')}-提案记录.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
 export async function createProposal(proposalData) {
   return post('/api/proposals/', proposalData);
+}
+
+export async function copyProposalAsDraft(proposalId) {
+  return post(`/api/proposals/${proposalId}/copy-as-draft`, {});
 }
 
 export async function listProposalTransitions(proposalId) {
@@ -118,6 +141,10 @@ export async function submitProposalReview(proposalId, payload) {
   return post(`/api/proposals/${proposalId}/reviews`, payload);
 }
 
+export async function setProposalReviewVisibility(proposalId, visible) {
+  return patch(`/api/proposals/${proposalId}/reviews/visibility`, { visible });
+}
+
 export async function updateProposal(proposalId, payload) {
   return patch(`/api/proposals/${proposalId}`, payload);
 }
@@ -128,6 +155,17 @@ export async function assignProposalReviewer(proposalId, payload) {
 
 export async function submitInstrumentFeedbackAPI(proposalId, instrumentCode, payload) {
   return post(`/api/proposals/${proposalId}/instruments/${instrumentCode}/feedback`, payload);
+}
+
+export async function allocateProposalData(proposalId, instrumentCode, payload) {
+  return post(`/api/proposals/${proposalId}/instruments/${instrumentCode}/data-allocation`, payload);
+}
+
+export async function revokeProposalData(proposalId, instrumentCode, productName) {
+  return fetcher(`/api/proposals/${proposalId}/instruments/${instrumentCode}/data-allocation`, {
+    method: 'DELETE',
+    body: JSON.stringify({ product_name: productName }),
+  });
 }
 
 // --- Workflow ---

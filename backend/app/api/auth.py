@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, request, current_app
 from app import db
-from app.models.models import User, Role
+from app.models.models import User
 import jwt
 import hashlib
 from datetime import datetime, timedelta
@@ -15,9 +15,7 @@ def _password_hash_fingerprint(password_hash):
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        token = None
-        if 'x-access-token' in request.headers:
-            token = request.headers['x-access-token']
+        token = request.headers.get('x-access-token') or request.args.get('access_token')
         
         if not token:
             return jsonify({'message': 'Token is missing!'}), 401
@@ -59,13 +57,6 @@ def register():
     user = User(username=data['username'], email=data['email'])
     user.set_password(data['password'])
     
-    # Assign default 'Proposer' role
-    proposer_role = Role.query.filter_by(name='Proposer').first()
-    if not proposer_role:
-        proposer_role = Role(name='Proposer')
-        db.session.add(proposer_role)
-    user.roles.append(proposer_role)
-
     db.session.add(user)
     db.session.commit()
 
@@ -101,7 +92,7 @@ def get_current_user(current_user):
         'id': current_user.id,
         'username': current_user.username,
         'email': current_user.email,
-        'roles': [role.name for role in current_user.roles]
+        'roles': current_user.effective_role_names()
     }
     return jsonify(user_data)
 

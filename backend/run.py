@@ -21,10 +21,21 @@ def seed():
 
     # Create built-in roles and a default admin user.
     admin_role = Role(name='Admin', is_system=True)
+    proposal_manager_role = Role(name='Proposal Manager', is_system=True)
     proposer_role = Role(name='Proposer', is_system=True)
+    technical_expert_role = Role(name='Technical Expert', is_system=True)
+    reviewer_role = Role(name='Reviewer', is_system=True)
     panel_chair_role = Role(name='Panel Chair', is_system=True)
     instrument_scheduler_role = Role(name='Instrument Scheduler', is_system=True)
-    db.session.add_all([admin_role, proposer_role, panel_chair_role, instrument_scheduler_role])
+    db.session.add_all([
+        admin_role,
+        proposal_manager_role,
+        proposer_role,
+        technical_expert_role,
+        reviewer_role,
+        panel_chair_role,
+        instrument_scheduler_role,
+    ])
 
     admin_user = User(username='admin', email='admin@example.com', is_active=True)
     admin_user.set_password('password')

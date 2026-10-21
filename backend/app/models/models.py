@@ -35,7 +35,16 @@ class User(db.Model):
         return check_password_hash(self.password_hash, password)
 
     def has_role(self, role_name):
+        # 提案申请是每个启用账号的基础权限，不依赖管理员额外分配角色。
+        if role_name == 'Proposer':
+            return bool(self.is_active)
         return any(role.name == role_name for role in self.roles)
+
+    def effective_role_names(self):
+        names = [role.name for role in self.roles]
+        if self.is_active and 'Proposer' not in names:
+            names.insert(0, 'Proposer')
+        return names
 
 
 class Role(db.Model):

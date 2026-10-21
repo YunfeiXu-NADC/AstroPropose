@@ -480,6 +480,7 @@ const WorkflowEditor = ({ initialDefinition, onSave }) => {
     try {
       const parsed = JSON.parse(transitionsDraft || '[]');
       const definition = {
+        ...(initialDefinition || {}),
         nodes,
         edges,
         initial_state: initialState,
@@ -503,17 +504,16 @@ const WorkflowEditor = ({ initialDefinition, onSave }) => {
 
   return (
     <div className="space-y-6">
-      {/* Help section */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-semibold text-blue-800 mb-2">📖 流程编辑器使用说明</h3>
-        <div className="text-sm text-blue-700 space-y-2">
+      <details className="border-y border-slate-200 bg-slate-50 px-4 py-2.5 text-sm">
+        <summary className="cursor-pointer font-semibold text-slate-700">流程编辑器使用说明</summary>
+        <div className="mt-3 grid gap-2 border-t border-slate-200 pt-3 text-xs leading-5 text-slate-600 md:grid-cols-2">
           <p><strong>1. 流程节点：</strong> 每个方框代表一个流程状态，例如草稿、已提交、已通过。点击节点可编辑属性。</p>
           <p><strong>2. 流转连线：</strong> 箭头表示提案如何从一个状态进入下一个状态。点击箭头可配置执行角色、条件和效果。</p>
           <p><strong>3. 初始节点：</strong> 新提案创建后的起始状态，通常为“草稿”。</p>
           <p><strong>4. 表单模板：</strong> 点击节点可关联该阶段需要填写的表单。</p>
           <p><strong>5. 流转规则 JSON：</strong> 下方显示全部流转规则，可直接编辑，也可点击连线进行可视化配置。</p>
         </div>
-      </div>
+      </details>
 
       {/* Toolbar */}
       <div className="flex gap-2 flex-wrap">

@@ -37,7 +37,7 @@ export default function ProposalDataPage() {
 
   return (
     <div className="rps-enter mx-auto max-w-5xl">
-      <Link href={`/proposals/${proposal.id}#observation-feedback`} className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-[#3347b8]"><ArrowLeftIcon className="h-4 w-4" /> 返回观测反馈</Link>
+      <Link href={`/proposals/${proposal.id}#data-allocation`} className="inline-flex items-center gap-2 text-sm font-semibold text-slate-500 hover:text-[#3347b8]"><ArrowLeftIcon className="h-4 w-4" /> 返回提案数据列表</Link>
       <header className="mt-5 border-b border-slate-200 pb-7">
         <p className="font-mono text-xs text-slate-400">RPS-{String(proposal.id).padStart(5, '0')} · 观测数据访问</p>
         <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">{proposal.title}</h1>

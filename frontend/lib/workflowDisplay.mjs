@@ -2,7 +2,7 @@ export const DEFAULT_REVIEW_STAGES = [
   '形式审查',
   '技术评审',
   '科学评审',
-  '科学委员会决策',
+  '最终决策',
 ];
 
 export const DEFAULT_PROPOSAL_TYPES = [
@@ -24,6 +24,68 @@ export function getProposalKind(name = '') {
   return /机遇|机会|opportunity|\btoo\b/i.test(name) ? 'opportunity' : 'research';
 }
 
+export function isProposalClosed(status = '') {
+  return ['数据已授权', '执行反馈', '已完成', '已驳回'].includes(status);
+}
+
+export function getProposalStatusPresentation(status = '') {
+  if (['草稿', 'Draft'].includes(status)) return { tone: 'draft', label: '草稿' };
+  if (status === '待修改') return { tone: 'revision', label: '已退回' };
+  if (status === '已驳回') return { tone: 'rejected', label: '已驳回' };
+  if (['数据已授权', '执行反馈', '已完成'].includes(status)) return { tone: 'closed', label: '已办结' };
+  return { tone: 'active', label: status || '状态未知' };
+}
+
+export function getFinalDecisionLabel(proposal = {}) {
+  if (proposal.final_decision?.outcome === 'reject' || proposal.status === '已驳回') return '驳回';
+
+  const committeeDecision = proposal.reviews?.find(
+    (review) => review.review_type === 'committee' && review.status === 'submitted',
+  );
+  if (committeeDecision?.recommendation === 'pass') return '通过';
+  if (committeeDecision?.recommendation === 'reject') return '驳回';
+
+  // Approval is already established by entering a post-decision DSL stage,
+  // even when the committee's review text is hidden from the applicant.
+  const approvedStages = new Set([
+    '已通过', '待分配观测数据', '数据已授权', '已推送观测编排', '执行反馈', '已完成',
+  ]);
+  if (proposal.proposal_type?.name?.startsWith('DSL ') && approvedStages.has(proposal.status)) {
+    return '通过';
+  }
+  return '未记录结论';
+}
+
+const ROW_PROGRESS_COLORS = {
+  draft: ['#eff2f6', 'rgba(239, 242, 246, 0)'],
+  active: ['#e6eafa', 'rgba(230, 234, 250, 0)'],
+  revision: ['#f3eada', 'rgba(243, 234, 218, 0)'],
+  rejected: ['#f5e3e7', 'rgba(245, 227, 231, 0)'],
+  closed: ['#e1efe7', 'rgba(225, 239, 231, 0)'],
+};
+
+export function getProposalProgressPercent(definition, status = '') {
+  const tone = getProposalStatusPresentation(status).tone;
+  if (tone === 'closed' || tone === 'rejected') return 100;
+  const stages = getWorkflowStages(definition);
+  if (!stages.length) return 0;
+
+  const displayStage = getWorkflowDisplayStage(definition, status);
+  const index = stages.indexOf(displayStage);
+  return index < 0 ? 0 : Math.round(((index + 1) / stages.length) * 100);
+}
+
+export function getProposalRowStyle(definition, status = '') {
+  const tone = getProposalStatusPresentation(status).tone;
+  const [start, end] = ROW_PROGRESS_COLORS[tone];
+  return {
+    backgroundImage: `linear-gradient(to right, ${start}, ${end})`,
+    backgroundPosition: 'left top',
+    backgroundRepeat: 'no-repeat',
+    backgroundSize: `${getProposalProgressPercent(definition, status)}% 100%`,
+  };
+}
+
 export function getProposalTypePresentation(type = {}) {
   const kind = getProposalKind(type.name);
   const isOpportunity = kind === 'opportunity';
@@ -35,7 +97,7 @@ export function getProposalTypePresentation(type = {}) {
       (isOpportunity ? '面向突发或时效性观测机会' : '面向预先规划的科学研究任务'),
     outcome: isOpportunity
       ? '评审意见推送至观测编排负责人'
-      : '观测编排 → 数据授权 → 数据下载',
+      : '待分配观测数据 → 数据下载',
     examples: isOpportunity
       ? '太阳活动 · 行星事件 · 瞬变源'
       : '宇宙黑暗时代 · 宇宙黎明 · 全天巡天',
@@ -109,6 +171,9 @@ export function getWorkflowStages(definition, fallback = DEFAULT_REVIEW_STAGES) 
 }
 
 export function getWorkflowDisplayStage(definition, currentStage) {
+  if (currentStage === '已驳回' && definition?.display_stages?.includes('最终决策')) {
+    return '最终决策';
+  }
   const groups = definition?.stage_groups;
   if (!groups || typeof groups !== 'object') {
     return currentStage;

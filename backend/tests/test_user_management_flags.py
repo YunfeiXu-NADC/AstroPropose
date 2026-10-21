@@ -40,7 +40,10 @@ def _create_legacy_auth_schema(database_url):
 def test_seeded_roles_have_system_flags(app):
     seeded_role_names = [
         "Admin",
+        "Proposal Manager",
         "Proposer",
+        "Technical Expert",
+        "Reviewer",
         "Panel Chair",
         "Instrument Scheduler",
     ]

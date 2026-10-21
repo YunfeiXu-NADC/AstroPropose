@@ -6,49 +6,72 @@ import { useRouter } from 'next/navigation';
 import {
   ArrowRightIcon,
   BeakerIcon,
-  MagnifyingGlassIcon,
   PlusIcon,
 } from '@heroicons/react/24/outline';
 
 import { getCurrentUser, getProposals } from '@/lib/api';
 import WorkflowProgress from '@/components/WorkflowProgress';
+import ListSearchField from '@/components/ListSearchField';
+import ListPageHeader from '@/components/ListPageHeader';
+import ListPageToolbar from '@/components/ListPageToolbar';
+import { hasObservationFeedback, observationFeedbackLabel } from '@/lib/observationFeedback.mjs';
 import {
   getProposalKind,
+  getProposalRowStyle,
+  getProposalStatusPresentation,
   getWorkflowDisplayStage,
   getWorkflowStages,
+  isProposalClosed,
 } from '@/lib/workflowDisplay.mjs';
 
 const PAGE_COPY = {
-  all: ['提案工作台', '在同一列表中查看不同类型提案及其当前进度。'],
-  research: ['研究提案', '查看长期科学研究申请、评审进度、观测编排与数据授权状态。'],
-  opportunity: ['机遇观测', '查看突发或时效性目标的快速评审、编排推送与执行反馈。'],
-  feedback: ['观测反馈', '申请人查看已授权结果；技术专家、观测编排负责人维护执行状态；管理员查看全局反馈。'],
-  admin: ['全部提案', '查看所有用户已经提交的提案、当前进度与评审分配情况。未提交草稿仅申请人本人可见。'],
+  all: '我的提案申请',
+  feedback: '观测编排及反馈',
+  allocation: '数据分配',
+  admin: '全部提案',
 };
 
-function scopeText(user, view) {
-  if (view === 'admin') return '所有用户已经提交的提案';
-  if (view === 'feedback') {
-    if (user?.roles?.includes('Admin')) return '系统管理员 · 查看全部已提交提案的反馈进展';
-    if (user?.roles?.includes('Instrument Scheduler')) return '观测编排负责人 · 维护观测窗口、执行状态与数据分配';
-    if (user?.roles?.includes('Technical Expert')) return '技术评审专家 · 跟踪仪器执行与观测反馈';
-    return '提案申请人 · 查看本人已授权的观测结果';
-  }
-  return '本人提交的提案';
-}
+const STATUS_TEXT_TONES = {
+  draft: 'text-slate-600',
+  active: 'text-[#304aa2]',
+  revision: 'text-[#995b14]',
+  rejected: 'text-[#a52d42]',
+  closed: 'text-[#17603d]',
+};
+
+const TYPE_LABEL_TONES = {
+  research: 'bg-[#f2f0f7] text-[#655b7b]',
+  opportunity: 'bg-[#edf4f3] text-[#476e70]',
+};
+
+const TYPE_FILTER_TONES = {
+  all: { selected: 'bg-[#3347b8] text-white', idle: 'text-slate-600 hover:bg-slate-100 hover:text-slate-950' },
+  research: { selected: 'bg-[#f2f0f7] text-[#655b7b] ring-1 ring-inset ring-[#ded8e8]', idle: 'text-[#655b7b] hover:bg-[#f2f0f7]' },
+  opportunity: { selected: 'bg-[#edf4f3] text-[#476e70] ring-1 ring-inset ring-[#d7e7e5]', idle: 'text-[#476e70] hover:bg-[#edf4f3]' },
+};
 
 function feedbackSummary(proposal) {
   const feedbacks = (proposal.instruments || [])
-    .filter((instrument) => Object.keys(instrument.scheduling_feedback || {}).length)
-    .map((instrument) => `${instrument.instrument}：已反馈`);
+    .filter((instrument) => hasObservationFeedback(instrument.scheduling_feedback))
+    .map((instrument) => `${instrument.instrument}：${observationFeedbackLabel(instrument.scheduling_feedback)}`);
   return feedbacks.length ? feedbacks.join(' · ') : '暂未生成观测反馈';
 }
 
-export default function ProposalWorkspace({ view = 'all' }) {
+function allocationSummary(proposal) {
+  const products = (proposal.instruments || []).flatMap(
+    (instrument) => instrument.scheduling_feedback?.data_products || []
+  );
+  if (products.length) return `已开放 ${products.length} 个数据产品`;
+  return '尚无已授权数据';
+}
+
+export default function ProposalWorkspace({ view = 'all', personalType = 'all' }) {
   const router = useRouter();
   const [user, setUser] = useState(null);
   const [proposals, setProposals] = useState([]);
   const [query, setQuery] = useState('');
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -57,7 +80,13 @@ export default function ProposalWorkspace({ view = 'all' }) {
       router.push('/login');
       return;
     }
-    const params = view === 'admin' ? { scope: 'admin' } : view === 'feedback' ? { scope: 'feedback' } : {};
+    const params = view === 'admin'
+      ? { scope: 'admin' }
+      : view === 'feedback'
+        ? { scope: 'feedback' }
+        : view === 'allocation'
+          ? { scope: 'data_allocation' }
+          : {};
     Promise.all([getCurrentUser(), getProposals(params)])
       .then(([me, items]) => {
         setUser(me);
@@ -74,12 +103,27 @@ export default function ProposalWorkspace({ view = 'all' }) {
       .finally(() => setLoading(false));
   }, [router, view]);
 
+  const statusOptions = useMemo(
+    () => [...new Set(proposals.map((proposal) => getProposalStatusPresentation(proposal.status).label))]
+      .sort((left, right) => left.localeCompare(right, 'zh-CN')),
+    [proposals]
+  );
+
   const filteredProposals = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
     return [...proposals]
       .filter((proposal) => {
-        if (view === 'research' || view === 'opportunity') {
-          return getProposalKind(proposal.proposal_type?.name) === view;
+        if (view === 'admin' && typeFilter !== 'all' && getProposalKind(proposal.proposal_type?.name) !== typeFilter) {
+          return false;
+        }
+        if (view === 'admin' && statusFilter !== 'all' && getProposalStatusPresentation(proposal.status).label !== statusFilter) {
+          return false;
+        }
+        if (view === 'all' && personalType !== 'all') {
+          return getProposalKind(proposal.proposal_type?.name) === personalType;
+        }
+        if (view === 'feedback' && user?.roles?.includes('Instrument Scheduler') && !user?.roles?.includes('Admin')) {
+          return getProposalKind(proposal.proposal_type?.name) === 'opportunity';
         }
         return true;
       })
@@ -94,13 +138,21 @@ export default function ProposalWorkspace({ view = 'all' }) {
         ].some((value) => String(value || '').toLowerCase().includes(normalizedQuery));
       })
       .sort((left, right) => Number(right.id) - Number(left.id));
-  }, [proposals, query, view]);
+  }, [personalType, proposals, query, statusFilter, typeFilter, user, view]);
 
   const researchCount = proposals.filter((item) => getProposalKind(item.proposal_type?.name) === 'research').length;
   const opportunityCount = proposals.filter((item) => getProposalKind(item.proposal_type?.name) === 'opportunity').length;
-  const reviewCount = proposals.filter((item) => /评审|review/i.test(item.status || '')).length;
-  const canCreate = !['admin', 'feedback'].includes(view) && user?.roles?.some((role) => ['Proposer', 'Admin'].includes(role));
-  const [title, description] = PAGE_COPY[view] || PAGE_COPY.all;
+  const canCreate = view === 'all' && Boolean(user);
+  const title = PAGE_COPY[view] || PAGE_COPY.all;
+  const isAdminList = view === 'admin';
+  const isAllocationList = view === 'allocation';
+  const isFeedbackList = view === 'feedback';
+  const isPersonalProposalList = view === 'all';
+  const tableColumns = isAllocationList
+    ? 'min-[840px]:grid-cols-[minmax(220px,1.25fr)_minmax(190px,0.9fr)_minmax(180px,1fr)]'
+    : isFeedbackList
+      ? 'min-[1050px]:grid-cols-[minmax(220px,1.4fr)_95px_minmax(100px,0.65fr)_minmax(150px,0.9fr)_minmax(220px,1.4fr)]'
+      : 'min-[840px]:grid-cols-[minmax(165px,1fr)_80px_145px_minmax(280px,1.55fr)]';
 
   if (loading) {
     return <div className="mx-auto max-w-[1450px] py-16 text-sm text-slate-500">正在加载提案列表…</div>;
@@ -108,72 +160,104 @@ export default function ProposalWorkspace({ view = 'all' }) {
 
   return (
     <div className="rps-enter mx-auto max-w-[1450px]">
-      <header className="flex flex-col justify-between gap-5 border-b border-slate-200 pb-6 sm:flex-row sm:items-end">
-        <div>
-          <p className="rps-eyebrow">提案工作区</p>
-          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">{title}</h1>
-          <p className="mt-2 text-sm text-slate-600">{description}</p>
-          <p className="mt-2 text-xs text-slate-400">当前范围：{scopeText(user, view)}</p>
-        </div>
-        {canCreate && (
-          <Link href="/proposals/new" className="rps-button-primary shrink-0">
-            <PlusIcon className="h-4 w-4" /> 创建新提案
-          </Link>
-        )}
-      </header>
+      <ListPageHeader title={title} />
 
       {error && <p className="mt-5 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
 
-      <section className="flex flex-col gap-5 border-b border-slate-200 py-5 lg:flex-row lg:items-center lg:justify-between" aria-label="列表摘要与搜索">
-        <dl className="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
-          <div><dt className="inline text-slate-500">可访问</dt><dd className="ml-2 inline font-semibold text-slate-950">{proposals.length}</dd></div>
-          <div className="hidden h-4 w-px bg-slate-200 sm:block" />
-          <div><dt className="inline text-slate-500">研究提案</dt><dd className="ml-2 inline font-semibold text-slate-950">{researchCount}</dd></div>
-          <div className="hidden h-4 w-px bg-slate-200 sm:block" />
-          <div><dt className="inline text-slate-500">机遇观测</dt><dd className="ml-2 inline font-semibold text-slate-950">{opportunityCount}</dd></div>
-          <div className="hidden h-4 w-px bg-slate-200 sm:block" />
-          <div><dt className="inline text-slate-500">评审中</dt><dd className="ml-2 inline font-semibold text-slate-950">{reviewCount}</dd></div>
-        </dl>
-        <label className="relative block w-full lg:w-80">
-          <span className="sr-only">搜索提案</span>
-          <MagnifyingGlassIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-          <input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="搜索编号、名称、申请人或状态"
-            className="rps-field pl-9"
-          />
-        </label>
-      </section>
+      <ListPageToolbar filters={isAdminList ? (
+          <div className="inline-flex w-full self-start items-center rounded-lg border border-slate-200 bg-white p-1 sm:w-auto" role="group" aria-label="按提案类型筛选">
+            {[
+              ['all', '全部', proposals.length],
+              ['research', '研究提案', researchCount],
+              ['opportunity', '机遇观测', opportunityCount],
+            ].map(([value, label, count]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setTypeFilter(value)}
+                aria-pressed={typeFilter === value}
+                className={`flex min-h-9 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3 text-xs font-medium transition-colors sm:flex-none sm:text-sm ${typeFilter === value ? TYPE_FILTER_TONES[value].selected : TYPE_FILTER_TONES[value].idle}`}
+              >
+                {label} <span className="tabular-nums opacity-70">{count}</span>
+              </button>
+            ))}
+          </div>
+        ) : isPersonalProposalList ? (
+          <nav className="inline-flex w-full self-start items-center rounded-lg border border-slate-200 bg-white p-1 sm:w-auto" aria-label="切换提案类型">
+            {[
+              ['all', '全部', proposals.length, '/dashboard/proposals'],
+              ['research', '研究提案', researchCount, '/dashboard/proposals?type=research'],
+              ['opportunity', '机遇观测', opportunityCount, '/dashboard/proposals?type=opportunity'],
+            ].map(([kind, label, count, href]) => (
+              <Link
+                key={kind}
+                href={href}
+                aria-current={personalType === kind ? 'page' : undefined}
+                className={`flex min-h-9 flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3 text-xs font-medium transition-colors sm:flex-none sm:text-sm ${personalType === kind ? TYPE_FILTER_TONES[kind].selected : TYPE_FILTER_TONES[kind].idle}`}
+              >
+                {label} <span className="tabular-nums opacity-70">{count}</span>
+              </Link>
+            ))}
+          </nav>
+        ) : null}>
+          {canCreate && (
+            <Link href="/proposals/new" className="rps-button-primary shrink-0 whitespace-nowrap">
+              <PlusIcon className="h-4 w-4" /> 创建新提案
+            </Link>
+          )}
+          {isAdminList && (
+            <label className="block w-40 shrink-0">
+              <span className="sr-only">按状态筛选</span>
+              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="rps-field h-full min-h-10 bg-white text-sm" aria-label="按状态筛选">
+                <option value="all">全部状态</option>
+                {statusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
+              </select>
+            </label>
+          )}
+          <ListSearchField value={query} onChange={setQuery} />
+      </ListPageToolbar>
 
       <section className="mt-5 overflow-hidden border-y border-slate-200 bg-white" aria-label="提案列表">
-        <div className="hidden grid-cols-[minmax(210px,1.15fr)_100px_90px_120px_minmax(450px,1.4fr)] gap-4 bg-slate-50 px-5 py-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 xl:grid">
-          <span>提案</span><span>类型</span><span>申请人</span><span>当前状态</span><span>{view === 'feedback' ? '观测反馈' : '流程进度'}</span>
+        <div className={`hidden gap-3 bg-slate-50 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 ${isFeedbackList ? 'min-[1050px]:grid' : 'min-[840px]:grid'} ${tableColumns}`}>
+          {isFeedbackList ? (
+            <><span>提案</span><span>类型</span><span>申请人</span><span>状态</span><span>观测反馈</span></>
+          ) : (
+            <><span>提案</span>{!isAllocationList && <span>类型</span>}<span>申请人 · 状态</span><span>{isAllocationList ? '数据授权状态' : '流程进度'}</span></>
+          )}
         </div>
 
         {filteredProposals.map((proposal) => {
           const stages = getWorkflowStages(proposal.workflow?.definition);
           const displayStage = getWorkflowDisplayStage(proposal.workflow?.definition, proposal.status);
           const kind = getProposalKind(proposal.proposal_type?.name);
+          const statusPresentation = getProposalStatusPresentation(proposal.status);
           return (
-            <article key={proposal.id} className="border-t border-slate-100 first:border-t-0">
-              <Link href={view === 'admin' ? `/proposals/${proposal.id}?mode=admin` : view === 'feedback' ? `/proposals/${proposal.id}?from=feedback#observation-feedback` : `/proposals/${proposal.id}`} className="grid gap-4 px-5 py-5 transition-colors hover:bg-slate-50/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#3347b8] xl:grid-cols-[minmax(210px,1.15fr)_100px_90px_120px_minmax(450px,1.4fr)] xl:items-center" aria-label={`查看提案：${proposal.title}`}>
+            <article key={proposal.id} className="border-t border-slate-100 first:border-t-0" style={getProposalRowStyle(proposal.workflow?.definition, proposal.status)}>
+              <Link href={view === 'admin' ? `/proposals/${proposal.id}?mode=admin` : view === 'feedback' && user?.roles?.includes('Instrument Scheduler') ? `/proposals/${proposal.id}?mode=scheduling#observation-feedback` : view === 'feedback' ? `/proposals/${proposal.id}?from=feedback#observation-feedback` : view === 'allocation' ? `/proposals/${proposal.id}?mode=allocation#data-allocation` : ['草稿', 'Draft'].includes(proposal.status) ? `/proposals/new?draft=${proposal.id}` : `/proposals/${proposal.id}`} className={`grid items-center gap-x-3 gap-y-2 px-4 py-3 transition-colors hover:bg-slate-50/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#3347b8] ${isAllocationList ? `grid-cols-1 ${tableColumns}` : `grid-cols-[minmax(0,1fr)_auto] ${tableColumns}`}`} aria-label={`查看提案：${proposal.title}`}>
                 <div className="min-w-0">
-                  <p className="font-mono text-[11px] text-slate-400">RPS-{String(proposal.id).padStart(5, '0')}</p>
-                  <h2 className="mt-1 truncate text-sm font-semibold text-slate-950" title={proposal.title}>{proposal.title}</h2>
+                  <p className="font-mono text-[11px] text-slate-400">{['草稿', 'Draft'].includes(proposal.status) ? '未生成编号' : `RPS-${String(proposal.id).padStart(5, '0')}`}</p>
+                  <h2 className="mt-0.5 truncate text-sm font-semibold text-slate-950" title={proposal.title}>{proposal.title}</h2>
                 </div>
-                <div>
-                  <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${kind === 'opportunity' ? 'bg-amber-50 text-amber-700' : 'bg-[#3347b8]/10 text-[#3347b8]'}`}>
+                {!isAllocationList && <div>
+                  <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${TYPE_LABEL_TONES[kind]}`}>
                     {kind === 'opportunity' ? '机遇观测' : '研究提案'}
                   </span>
-                </div>
-                <p className="text-xs text-slate-600"><span className="text-slate-400 xl:hidden">申请人：</span>{proposal.author?.username || '—'}</p>
-                <p className="text-xs font-medium text-slate-700"><span className="text-slate-400 xl:hidden">状态：</span>{proposal.status}</p>
-                <div className="min-w-0">
+                </div>}
+                {isFeedbackList ? (
+                  <>
+                    <p className="min-w-0 truncate text-xs leading-5 text-slate-600"><span className="text-slate-400 min-[1050px]:hidden">申请人：</span>{proposal.author?.username || '—'}</p>
+                    <p className={`min-w-0 text-xs font-semibold leading-5 ${STATUS_TEXT_TONES[statusPresentation.tone]}`}><span className="font-normal text-slate-400 min-[1050px]:hidden">状态：</span>{statusPresentation.label}</p>
+                  </>
+                ) : (
+                  <p className={`${isAllocationList ? '' : 'col-span-2 min-[840px]:col-span-1'} min-w-0 text-xs leading-5 text-slate-600`}><span className="text-slate-400 min-[840px]:hidden">申请人：</span>{proposal.author?.username || '—'}<span className="mx-1.5 text-slate-300">·</span><span className={`font-semibold ${STATUS_TEXT_TONES[statusPresentation.tone]}`}>{statusPresentation.label}</span></p>
+                )}
+                <div className={`${isAllocationList ? '' : isFeedbackList ? 'col-span-2 min-[1050px]:col-span-1' : 'col-span-2 min-[840px]:col-span-1'} min-w-0`}>
                   {view === 'feedback' ? (
                     <p className="text-xs leading-5 text-slate-600">{feedbackSummary(proposal)}</p>
+                  ) : view === 'allocation' ? (
+                    <p className="text-xs font-medium leading-5 text-slate-700">{allocationSummary(proposal)}</p>
                   ) : (
-                    <WorkflowProgress stages={stages} currentStage={displayStage} compact />
+                    <WorkflowProgress stages={stages} currentStage={displayStage} completed={isProposalClosed(proposal.status)} rejected={proposal.status === '已驳回'} tone={statusPresentation.tone} compact nearby />
                   )}
                 </div>
               </Link>
@@ -185,8 +269,8 @@ export default function ProposalWorkspace({ view = 'all' }) {
           <div className="flex min-h-72 flex-col items-center justify-center px-6 text-center">
             <BeakerIcon className="h-9 w-9 text-[#7899a7]" />
             <h2 className="mt-4 text-base font-semibold text-slate-900">没有符合条件的提案</h2>
-            <p className="mt-1 text-sm text-slate-500">当前角色的数据范围内暂无记录。</p>
-            {canCreate && <Link href="/proposals/new" className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#3347b8]">创建新提案 <ArrowRightIcon className="h-4 w-4" /></Link>}
+            <p className="mt-1 text-sm text-slate-500">{query.trim() ? '没有匹配搜索条件的提案。' : isAdminList && (typeFilter !== 'all' || statusFilter !== 'all') ? '没有符合当前类别和状态的提案。' : isPersonalProposalList ? personalType === 'all' ? '你还没有提交提案。' : `当前没有${personalType === 'research' ? '研究提案' : '机遇观测'}。` : '当前列表暂无记录。'}</p>
+            {canCreate && !query.trim() && <Link href="/proposals/new" className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#3347b8]">创建新提案 <ArrowRightIcon className="h-4 w-4" /></Link>}
           </div>
         )}
       </section>

@@ -11,11 +11,14 @@ import {
   updateAdminUser,
 } from '@/lib/api';
 import { formatRoles, translateRole } from '@/lib/locale.mjs';
+import ListPageHeader from '@/components/ListPageHeader';
+import ListPageToolbar from '@/components/ListPageToolbar';
+import ListSearchField from '@/components/ListSearchField';
 
 function RoleChecklist({ roles, selectedRoleIds, onToggle, disabled = false }) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-      {roles.map((role) => (
+      {roles.filter((role) => role.name !== 'Proposer').map((role) => (
         <label
           key={role.id}
           className={`flex items-center gap-2 rounded border px-3 py-2 ${
@@ -45,6 +48,7 @@ export default function UsersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [query, setQuery] = useState('');
 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newUsername, setNewUsername] = useState('');
@@ -60,6 +64,13 @@ export default function UsersPage() {
   const [resetPassword, setResetPassword] = useState('');
 
   const selectedUser = users.find((user) => user.id === selectedUserId) || null;
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredUsers = users.filter((user) => !normalizedQuery || [
+    user.username,
+    user.email,
+    formatRoles(user.roles),
+    user.is_active ? '已启用' : '已停用',
+  ].some((value) => String(value || '').toLowerCase().includes(normalizedQuery)));
 
   const toggleRole = (roleIds, roleId, setter) => {
     setter(
@@ -75,7 +86,7 @@ export default function UsersPage() {
     setEditIsActive(user.is_active);
     setEditRoleIds(
       availableRoles
-        .filter((role) => user.roles.includes(role.name))
+        .filter((role) => role.name !== 'Proposer' && user.roles.includes(role.name))
         .map((role) => role.id)
     );
     setResetPassword('');
@@ -198,20 +209,14 @@ export default function UsersPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">用户管理</h1>
-          <p className="text-sm text-gray-600">创建用户、分配角色、停用账户和重置密码。</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setShowCreateForm((value) => !value)}
-          className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
-        >
-          {showCreateForm ? '取消' : '+ 添加用户'}
+    <div className="rps-enter mx-auto max-w-[1450px] space-y-5">
+      <ListPageHeader title="用户管理" />
+      <ListPageToolbar>
+        <button type="button" onClick={() => setShowCreateForm((value) => !value)} className="rps-button-primary shrink-0">
+          {showCreateForm ? '取消' : '添加用户'}
         </button>
-      </div>
+        <ListSearchField value={query} onChange={setQuery} label="搜索用户" placeholder="搜索用户名、邮箱或角色" />
+      </ListPageToolbar>
 
       <p className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
         用户密码采用不可逆加密保存，管理员无法查看原密码；忘记密码时只能为用户设置新密码。
@@ -269,15 +274,13 @@ export default function UsersPage() {
             </div>
 
             <div>
-              <p className="block text-sm font-medium text-gray-700 mb-2">角色</p>
+              <p className="block text-sm font-medium text-gray-700 mb-2">附加权限</p>
+              <p className="mb-2 text-xs text-gray-500">所有启用账号均可创建和提交本人提案；评审等权限在此单独开通。</p>
               <RoleChecklist
                 roles={roles}
                 selectedRoleIds={newRoleIds}
                 onToggle={(roleId) => toggleRole(newRoleIds, roleId, setNewRoleIds)}
               />
-              <p className="mt-2 text-xs text-gray-500">
-                若不选择角色，系统将在可用时自动分配默认提案者角色。
-              </p>
             </div>
 
             <button
@@ -290,11 +293,8 @@ export default function UsersPage() {
         </section>
       )}
 
-      <section className="bg-white shadow-md rounded-lg overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-xl font-semibold">用户列表</h2>
-        </div>
-        <table className="min-w-full divide-y divide-gray-200">
+      <section className="overflow-x-auto border-y border-slate-200 bg-white" aria-label="用户列表">
+        <table className="rps-list-table min-w-[760px]">
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -321,14 +321,14 @@ export default function UsersPage() {
                   正在加载…
                 </td>
               </tr>
-            ) : users.length === 0 ? (
+            ) : filteredUsers.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
-                  暂无用户。
+                  {normalizedQuery ? '没有匹配的用户。' : '暂无用户。'}
                 </td>
               </tr>
             ) : (
-              users.map((user) => (
+              filteredUsers.map((user) => (
                 <tr
                   key={user.id}
                   className={selectedUserId === user.id ? 'bg-indigo-50' : undefined}
@@ -406,7 +406,8 @@ export default function UsersPage() {
             </label>
 
             <div>
-              <p className="block text-sm font-medium text-gray-700 mb-2">角色</p>
+              <p className="block text-sm font-medium text-gray-700 mb-2">附加权限</p>
+              <p className="mb-2 text-xs text-gray-500">提案申请是基础权限，不会因取消评审等附加权限而失去。</p>
               <RoleChecklist
                 roles={roles}
                 selectedRoleIds={editRoleIds}

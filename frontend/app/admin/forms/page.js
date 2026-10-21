@@ -11,6 +11,7 @@ import {
   getExternalTool,
 } from '@/lib/api';
 import { translatePhase } from '@/lib/locale.mjs';
+import ListPageHeader from '@/components/ListPageHeader';
 
 // Field type options
 const FIELD_TYPES = [
@@ -260,8 +261,8 @@ export default function FormManagementPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-3xl font-bold">表单模板管理</h1>
+    <div className="rps-enter mx-auto max-w-[1450px] space-y-5">
+      <ListPageHeader title="表单模板管理" />
 
       {/* Create new form section */}
       <div className="bg-white shadow-md rounded-lg p-6">

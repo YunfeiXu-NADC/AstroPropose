@@ -7,8 +7,8 @@ import {
   AdjustmentsHorizontalIcon,
   ArrowRightOnRectangleIcon,
   Bars3Icon,
-  BoltIcon,
   ClipboardDocumentCheckIcon,
+  CircleStackIcon,
   CpuChipIcon,
   DocumentTextIcon,
   FolderOpenIcon,
@@ -26,10 +26,10 @@ import { getCurrentUser } from '@/lib/api';
 import { getWorkspaceEntriesForRoles } from '@/lib/navigationPolicy.mjs';
 
 const workspaceIcons = {
-  research: FolderOpenIcon,
-  opportunity: BoltIcon,
+  proposals: FolderOpenIcon,
   reviews: ClipboardDocumentCheckIcon,
   feedback: SignalIcon,
+  dataAllocation: CircleStackIcon,
 };
 
 const adminItems = [
@@ -45,7 +45,7 @@ const adminItems = [
 
 function SidebarContent({ isLoggedIn, roles, onLogout, onNavigate }) {
   const pathname = usePathname();
-  const visibleItems = getWorkspaceEntriesForRoles(roles);
+  const visibleItems = getWorkspaceEntriesForRoles(roles, isLoggedIn);
 
   return (
     <div className="flex h-full flex-col">

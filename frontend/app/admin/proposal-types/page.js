@@ -7,6 +7,9 @@ import {
   getWorkflows,
   updateProposalType,
 } from '@/lib/api';
+import ListPageHeader from '@/components/ListPageHeader';
+import ListPageToolbar from '@/components/ListPageToolbar';
+import ListSearchField from '@/components/ListSearchField';
 
 export default function ProposalTypesPage() {
   const [proposalTypes, setProposalTypes] = useState([]);
@@ -14,6 +17,7 @@ export default function ProposalTypesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [query, setQuery] = useState('');
 
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newType, setNewType] = useState({
@@ -33,6 +37,12 @@ export default function ProposalTypesPage() {
     () => Object.fromEntries(workflows.map((workflow) => [workflow.id, workflow.name])),
     [workflows]
   );
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredProposalTypes = proposalTypes.filter((proposalType) => !normalizedQuery || [
+    proposalType.name,
+    proposalType.description,
+    workflowNameMap[proposalType.workflow_id],
+  ].some((value) => String(value || '').toLowerCase().includes(normalizedQuery)));
 
   async function refresh() {
     setLoading(true);
@@ -114,22 +124,14 @@ export default function ProposalTypesPage() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">提案类型管理</h1>
-          <p className="text-sm text-gray-500 mt-2">
-            将流程发布为提案者创建申请时可选择的提案类型。
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setShowCreateForm((value) => !value)}
-          className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
-        >
-          {showCreateForm ? '取消' : '+ 发布提案类型'}
+    <div className="rps-enter mx-auto max-w-[1450px] space-y-5">
+      <ListPageHeader title="提案类型管理" />
+      <ListPageToolbar>
+        <button type="button" onClick={() => setShowCreateForm((value) => !value)} className="rps-button-primary shrink-0">
+          {showCreateForm ? '取消' : '发布提案类型'}
         </button>
-      </div>
+        <ListSearchField value={query} onChange={setQuery} label="搜索提案类型" placeholder="搜索类型名称、说明或关联流程" />
+      </ListPageToolbar>
 
       {error && <p className="text-red-500 bg-red-100 p-3 rounded">{error}</p>}
       {success && <p className="text-green-500 bg-green-100 p-3 rounded">{success}</p>}
@@ -184,8 +186,8 @@ export default function ProposalTypesPage() {
         </div>
       )}
 
-      <div className="bg-white shadow-md rounded-lg overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
+      <div className="overflow-x-auto border-y border-slate-200 bg-white" role="region" aria-label="提案类型列表">
+        <table className="rps-list-table min-w-[680px]">
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -209,14 +211,14 @@ export default function ProposalTypesPage() {
                   正在加载…
                 </td>
               </tr>
-            ) : proposalTypes.length === 0 ? (
+            ) : filteredProposalTypes.length === 0 ? (
               <tr>
                 <td colSpan={4} className="px-6 py-4 text-center text-gray-500">
-                  暂未发布提案类型。
+                  {normalizedQuery ? '没有匹配的提案类型。' : '暂未发布提案类型。'}
                 </td>
               </tr>
             ) : (
-              proposalTypes.map((proposalType) => (
+              filteredProposalTypes.map((proposalType) => (
                 <tr key={proposalType.id}>
                   {editingId === proposalType.id ? (
                     <>

@@ -54,7 +54,7 @@ class WorkflowEngine:
         proposal = Proposal.query.get_or_404(proposal_id)
         workflow = self._load_workflow(proposal)
         current_state = proposal.current_state.name if proposal.current_state else None
-        actor_roles = {role.name for role in getattr(actor, "roles", [])}
+        actor_roles = set(actor.effective_role_names())
         allowed: List[Dict[str, Any]] = []
         for transition in workflow.get("transitions", []):
             if transition.get("from") != current_state:
@@ -98,7 +98,7 @@ class WorkflowEngine:
         roles_required = transition.get("roles") or []
         if not roles_required:
             return
-        actor_roles = {role.name for role in getattr(actor, "roles", [])}
+        actor_roles = set(actor.effective_role_names())
         if actor_roles.isdisjoint(roles_required):
             raise PermissionError("Insufficient role to execute transition.")
 

@@ -45,6 +45,39 @@ def _sync_workflow_states_from_definition(workflow, definition):
         state.form_template_id = state_data["form_template_id"]
         state.form_required = state_data["form_required"]
 
+    if workflow.name == 'DSL 研究提案流程' and '待分配观测数据' in desired_names:
+        db.session.flush()
+        final_state = WorkflowState.query.filter_by(
+            workflow_id=workflow.id, name='待最终决策'
+        ).first()
+        legacy_decision_state = existing_states.get('待委员会决策')
+        if final_state is not None and legacy_decision_state is not None:
+            for proposal in legacy_decision_state.proposals.all():
+                proposal.current_state = final_state
+        pending_data = WorkflowState.query.filter_by(
+            workflow_id=workflow.id, name='待分配观测数据'
+        ).one()
+        for legacy_name in ('待数据处理', '数据待分配', '已通过', '观测编排', '观测执行', '数据匹配', '手动数据关联'):
+            legacy_state = existing_states.get(legacy_name)
+            if legacy_state is not None:
+                for proposal in legacy_state.proposals.all():
+                    proposal.current_state = pending_data
+        db.session.flush()
+
+    if workflow.name == 'DSL 机遇观测提案流程':
+        db.session.flush()
+        for legacy_name, current_name in (
+            ('待快速科学评审', '待科学评审'),
+            ('待快速决策', '待最终决策'),
+        ):
+            current_state = WorkflowState.query.filter_by(
+                workflow_id=workflow.id, name=current_name
+            ).first()
+            legacy_state = existing_states.get(legacy_name)
+            if current_state is not None and legacy_state is not None:
+                for proposal in legacy_state.proposals.all():
+                    proposal.current_state = current_state
+        db.session.flush()
     for state_name, state in existing_states.items():
         if state_name in desired_names:
             continue

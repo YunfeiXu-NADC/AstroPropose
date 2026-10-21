@@ -2,12 +2,16 @@
 
 import { useEffect, useState } from 'react';
 import { listInstruments, createInstrument, updateInstrument } from '@/lib/api';
+import ListPageHeader from '@/components/ListPageHeader';
+import ListPageToolbar from '@/components/ListPageToolbar';
+import ListSearchField from '@/components/ListSearchField';
 
 export default function InstrumentsPage() {
   const [instruments, setInstruments] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [query, setQuery] = useState('');
 
   // Create new instrument
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -106,21 +110,23 @@ export default function InstrumentsPage() {
     setEditDescription(instrument.description || '');
   };
 
-  return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">仪器管理</h1>
-        <button
-          onClick={() => setShowCreateForm(!showCreateForm)}
-          className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
-        >
-          {showCreateForm ? '取消' : '+ 添加仪器'}
-        </button>
-      </div>
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredInstruments = instruments.filter((instrument) => !normalizedQuery || [
+    instrument.code,
+    instrument.name,
+    instrument.description,
+    instrument.is_active ? '已启用' : '已停用',
+  ].some((value) => String(value || '').toLowerCase().includes(normalizedQuery)));
 
-      <p className="text-gray-600">
-        管理鸿蒙计划的仪器列表。仪器可关联表单模板，用于收集对应的观测参数。
-      </p>
+  return (
+    <div className="rps-enter mx-auto max-w-[1450px] space-y-5">
+      <ListPageHeader title="仪器管理" />
+      <ListPageToolbar>
+        <button type="button" onClick={() => setShowCreateForm(!showCreateForm)} className="rps-button-primary shrink-0">
+          {showCreateForm ? '取消' : '添加仪器'}
+        </button>
+        <ListSearchField value={query} onChange={setQuery} label="搜索仪器" placeholder="搜索仪器名称、代码或说明" />
+      </ListPageToolbar>
 
       {error && <p className="text-red-500 bg-red-100 p-3 rounded">{error}</p>}
       {success && <p className="text-green-500 bg-green-100 p-3 rounded">{success}</p>}
@@ -184,8 +190,8 @@ export default function InstrumentsPage() {
       )}
 
       {/* Instrument list */}
-      <div className="bg-white shadow-md rounded-lg overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
+      <div className="overflow-x-auto border-y border-slate-200 bg-white" role="region" aria-label="仪器列表">
+        <table className="rps-list-table min-w-[760px]">
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -212,14 +218,14 @@ export default function InstrumentsPage() {
                   正在加载…
                 </td>
               </tr>
-            ) : instruments.length === 0 ? (
+            ) : filteredInstruments.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
-                  暂未配置仪器，请点击“添加仪器”。
+                  {normalizedQuery ? '没有匹配的仪器。' : '暂未配置仪器，请点击“添加仪器”。'}
                 </td>
               </tr>
             ) : (
-              instruments.map((instrument) => (
+              filteredInstruments.map((instrument) => (
                 <tr key={instrument.code}>
                   {editingCode === instrument.code ? (
                     // Edit mode

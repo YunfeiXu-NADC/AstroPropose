@@ -1,5 +1,6 @@
 const ROLE_LABELS = {
   Admin: '系统管理员',
+  'Proposal Manager': '提案管理员',
   Proposer: '提案者',
   Reviewer: '科学评审专家',
   'Technical Expert': '技术评审专家',

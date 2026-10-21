@@ -14,7 +14,7 @@ def _serialize_user(user):
         "username": user.username,
         "email": user.email,
         "is_active": user.is_active,
-        "roles": [role.name for role in user.roles],
+        "roles": user.effective_role_names(),
     }
 
 
@@ -23,7 +23,7 @@ def _serialize_role(role):
         "id": role.id,
         "name": role.name,
         "is_system": role.is_system,
-        "user_count": len(role.users),
+        "user_count": User.query.filter_by(is_active=True).count() if role.name == 'Proposer' else len(role.users),
         "workflow_reference_count": _workflow_reference_count(role.name),
     }
 
@@ -38,14 +38,7 @@ def _workflow_reference_count(role_name):
 
 
 def _get_role_ids(data):
-    role_ids = data.get("role_ids")
-    if role_ids:
-        return role_ids
-
-    proposer = Role.query.filter_by(name="Proposer").first()
-    if proposer is None:
-        return []
-    return [proposer.id]
+    return data.get("role_ids") or []
 
 
 def _load_roles(role_ids):

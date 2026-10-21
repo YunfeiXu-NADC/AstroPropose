@@ -66,6 +66,35 @@ textarea:focus-visible {
     outline: none;
   }
 
+  .rps-list-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .rps-list-table thead {
+    background: #f8fafc;
+  }
+
+  .rps-list-table th {
+    padding: 0.625rem 1rem;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    color: #64748b;
+  }
+
+  .rps-list-table td {
+    padding: 0.75rem 1rem;
+  }
+
+  .rps-list-table tbody tr:not(:last-child) {
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  .rps-list-table tbody tr:hover {
+    background: rgb(248 250 252 / 70%);
+  }
+
   .rps-button-primary {
     @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50;
     background: var(--rps-primary);

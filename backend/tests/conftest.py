@@ -53,9 +53,20 @@ def seed_reference_data():
     """Create baseline roles, workflow, proposal types, instruments, and templates."""
     proposer_role = Role(name="Proposer", is_system=True)
     admin_role = Role(name="Admin", is_system=True)
+    proposal_manager_role = Role(name="Proposal Manager", is_system=True)
+    technical_expert_role = Role(name="Technical Expert", is_system=True)
+    reviewer_role = Role(name="Reviewer", is_system=True)
     scheduler_role = Role(name="Instrument Scheduler", is_system=True)
     chair_role = Role(name="Panel Chair", is_system=True)
-    db.session.add_all([proposer_role, admin_role, scheduler_role, chair_role])
+    db.session.add_all([
+        proposer_role,
+        admin_role,
+        proposal_manager_role,
+        technical_expert_role,
+        reviewer_role,
+        scheduler_role,
+        chair_role,
+    ])
 
     workflow_definition = {
         "initial_state": "Draft",
