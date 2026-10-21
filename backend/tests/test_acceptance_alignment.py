@@ -125,6 +125,39 @@ def test_review_disclosure_controls_detail_and_pdf(app, client, proposer_token, 
     assert client.get(f'{url}/document', headers=owner_headers).data == b''
 
 
+def test_creation_metadata_cannot_release_internal_reviews(app, client, proposer_token, admin_token, monkeypatch):
+    owner_headers = {'x-access-token': proposer_token}
+    admin_headers = {'x-access-token': admin_token}
+    created = client.post('/api/proposals/', json={
+        'title': 'Private review metadata',
+        'proposal_type_id': ProposalType.query.first().id,
+        'save_as_draft': True,
+        'meta': {'review_visibility': 'visible', 'category': 'research'},
+    }, headers=owner_headers)
+    assert created.status_code == 201
+    proposal_id = created.get_json()['id']
+    proposal = Proposal.query.get(proposal_id)
+    proposal.current_state = WorkflowState.query.filter_by(name='Submitted').one()
+    proposal.phases.first().status = 'submitted'
+    reviewer = make_user('private-reviewer', 'Reviewer')
+    db.session.add(ProposalReview(
+        proposal=proposal, reviewer=reviewer, review_type='scientific',
+        status='submitted', scores={'scientific_merit': 4},
+        recommendation='pass', comments='Internal review',
+    ))
+    db.session.commit()
+    monkeypatch.setattr('app.api.proposals._build_proposal_pdf',
+                        lambda proposal, reviews: '|'.join(item.comments for item in reviews).encode())
+    url = f'/api/proposals/{proposal_id}'
+    assert client.get(url, headers=owner_headers).get_json()['reviews'] == []
+    assert client.get(f'{url}/document', headers=owner_headers).data == b''
+    assert proposal.data == {'category': 'research'}
+    assert client.patch(f'{url}/reviews/visibility', json={'visible': True}, headers=owner_headers).status_code == 403
+    assert client.patch(f'{url}/reviews/visibility', json={'visible': True}, headers=admin_headers).status_code == 200
+    assert len(client.get(url, headers=owner_headers).get_json()['reviews']) == 1
+    assert client.get(f'{url}/document', headers=owner_headers).data == b'Internal review'
+
+
 def test_rejection_reason_is_official_result_even_when_reviews_are_hidden(app, client, proposer_token, admin_token):
     with app.app_context():
         proposal_type = ProposalType.query.first()

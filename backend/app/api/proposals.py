@@ -586,11 +586,14 @@ def create_proposal(current_user):
         return jsonify({'message': '提案类型无效'}), 400
 
     initial_state = _resolve_initial_state(proposal_type)
+    metadata = dict(data.get('meta') or {})
+    # Review disclosure is controlled only by the administrator endpoint.
+    metadata.pop('review_visibility', None)
 
     proposal = Proposal(
         title=str(title or '未命名提案').strip() or '未命名提案',
         abstract=data.get('abstract', ''),
-        data=data.get('meta', {}),
+        data=metadata,
         author=current_user,
         proposal_type=proposal_type,
         current_state_id=initial_state.id,
