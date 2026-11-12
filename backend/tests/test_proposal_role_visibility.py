@@ -322,24 +322,17 @@ def test_proposal_manager_can_allocate_temporary_observation_data(app, client):
         headers=manager_headers,
         json={'observation_id': 'DSL-OBS-TEMP-0002', 'product_name': 'LF-质量报告.txt'},
     )
-    assert second.status_code == 200
+    assert second.status_code == 409
     allocation_url = f'/api/proposals/{proposal_id}/instruments/{instrument_code}/data-allocation'
     assert client.delete(allocation_url, headers=owner_headers, json={'product_name': 'LF-观测清单.csv'}).status_code == 403
-    assert client.delete(allocation_url, headers=manager_headers, json={'product_name': '不存在.csv'}).status_code == 404
-
-    first_revoke = client.delete(allocation_url, headers=manager_headers, json={'product_name': 'LF-观测清单.csv'})
-    assert first_revoke.status_code == 200
-    assert first_revoke.get_json()['proposal_state'] == '数据已授权'
-    remaining = client.get(f'/api/proposals/{proposal_id}', headers=owner_headers).get_json()
-    assert [product['name'] for product in remaining['instruments'][0]['scheduling_feedback']['data_products']] == ['LF-质量报告.txt']
-
-    last_revoke = client.delete(allocation_url, headers=manager_headers, json={'product_name': 'LF-质量报告.txt'})
-    assert last_revoke.status_code == 200
-    assert last_revoke.get_json()['proposal_state'] == '待分配观测数据'
-    waiting = client.get(f'/api/proposals/{proposal_id}', headers=owner_headers).get_json()
-    assert waiting['instruments'][0]['scheduling_feedback'] == {}
-    assert waiting['status'] == '待分配观测数据'
-    assert waiting['history'][-1]['transition_name'] == 'revoke_data'
+    assert client.delete(allocation_url, headers=manager_headers, json={'product_name': 'LF-观测清单.csv'}).status_code == 409
+    closed = client.get(f'/api/proposals/{proposal_id}', headers=owner_headers).get_json()
+    assert [product['name'] for product in closed['instruments'][0]['scheduling_feedback']['data_products']] == ['LF-观测清单.csv']
+    assert closed['status'] == '数据已授权'
+    manager_detail = client.get(f'/api/proposals/{proposal_id}', headers=manager_headers).get_json()
+    assert manager_detail['permissions']['can_allocate_data'] is False
+    assert manager_detail['permissions']['can_manage_data'] is False
+    assert get_visible(client, manager_headers['x-access-token'], 'data_allocation').get_json() == []
 
 
 def test_proposal_document_downloads_as_pdf(app, client):

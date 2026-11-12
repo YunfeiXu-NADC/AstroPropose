@@ -1,5 +1,6 @@
 export const WORKSPACE_ENTRIES = [
   { key: 'proposals', href: '/dashboard/proposals', label: '提案申请', baseline: true },
+  { key: 'results', href: '/dashboard/results', label: '科研成果公示', baseline: true },
   { key: 'reviews', href: '/dashboard/panel', label: '评审任务', roles: ['Technical Expert', 'Reviewer', 'Panel Chair', 'Admin'] },
   { key: 'feedback', href: '/dashboard/feedback', label: '观测编排', roles: ['Technical Expert', 'Instrument Scheduler', 'Admin'] },
   { key: 'dataAllocation', href: '/dashboard/data-allocation', label: '数据分配', roles: ['Proposal Manager', 'Admin'] },

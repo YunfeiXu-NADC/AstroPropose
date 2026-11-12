@@ -1,6 +1,6 @@
 [project]
 name = "astropropose-backend"
-version = "0.1.0"
+version = "0.2.0"
 description = "AstroPropose backend services"
 requires-python = ">=3.12,<3.13"
 dependencies = [

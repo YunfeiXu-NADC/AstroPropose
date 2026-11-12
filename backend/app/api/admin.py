@@ -2,7 +2,7 @@ from flask import Blueprint, jsonify, request
 
 from app import db
 from app.api.auth import admin_required, token_required
-from app.models.models import Role, User, WorkflowTransition
+from app.models.models import Role, User, Workflow, WorkflowTransition
 
 
 bp = Blueprint("admin", __name__)
@@ -29,12 +29,19 @@ def _serialize_role(role):
 
 
 def _workflow_reference_count(role_name):
-    count = 0
+    references = set()
     for transition in WorkflowTransition.query.all():
         allowed_roles = transition.allowed_roles or []
         if role_name in allowed_roles:
-            count += 1
-    return count
+            references.add((transition.workflow_id, transition.name))
+    for workflow in Workflow.query.all():
+        definition = workflow.definition or {}
+        if not isinstance(definition, dict):
+            continue
+        for index, transition in enumerate(definition.get("transitions") or []):
+            if isinstance(transition, dict) and role_name in (transition.get("roles") or []):
+                references.add((workflow.id, transition.get("name") or f"definition-{index}"))
+    return len(references)
 
 
 def _get_role_ids(data):

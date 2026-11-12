@@ -170,7 +170,7 @@ export default function RolesPage() {
       </section>
 
       <section className="overflow-x-auto border-y border-slate-200 bg-white" aria-label="角色列表">
-        <table className="rps-list-table min-w-[680px]">
+        <table className="rps-list-table min-w-[540px]">
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -182,9 +182,6 @@ export default function RolesPage() {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 用户数
               </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                流程引用数
-              </th>
               <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                 操作
               </th>
@@ -193,13 +190,13 @@ export default function RolesPage() {
           <tbody className="bg-white divide-y divide-gray-200">
             {isLoading ? (
               <tr>
-                <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
+                <td colSpan={4} className="px-6 py-4 text-center text-gray-500">
                   正在加载…
                 </td>
               </tr>
             ) : filteredRoles.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
+                <td colSpan={4} className="px-6 py-4 text-center text-gray-500">
                   {normalizedQuery ? '没有匹配的角色。' : '暂未配置角色。'}
                 </td>
               </tr>
@@ -214,7 +211,6 @@ export default function RolesPage() {
                     {translateRoleType(role.is_system)}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-700">{role.user_count}</td>
-                  <td className="px-6 py-4 text-sm text-gray-700">{role.workflow_reference_count}</td>
                   <td className="px-6 py-4 text-right">
                     <button
                       type="button"
@@ -251,7 +247,7 @@ export default function RolesPage() {
               <p className="mt-1 text-sm text-slate-700">{getRoleGuide(selectedRole.name).capabilities.join('、')}</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div className="rounded border p-4">
                 <p className="text-gray-500">类型</p>
                 <p className="font-semibold">{translateRoleType(selectedRole.is_system)}</p>
@@ -259,10 +255,6 @@ export default function RolesPage() {
               <div className="rounded border p-4">
                 <p className="text-gray-500">已分配用户</p>
                 <p className="font-semibold">{selectedRole.user_count}</p>
-              </div>
-              <div className="rounded border p-4">
-                <p className="text-gray-500">流程引用</p>
-                <p className="font-semibold">{selectedRole.workflow_reference_count}</p>
               </div>
             </div>
 

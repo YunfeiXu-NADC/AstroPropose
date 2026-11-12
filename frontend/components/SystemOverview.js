@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import {
   ArrowRightIcon,
   BoltIcon,
-  ChartBarIcon,
   CircleStackIcon,
   ClockIcon,
   EyeIcon,
@@ -102,6 +101,7 @@ export default function SystemOverview() {
     () => [...proposals].sort((left, right) => Number(right.id) - Number(left.id)).slice(0, 5),
     [proposals]
   );
+  const pendingResultCount = proposals.filter((proposal) => proposal.can_submit_result).length;
 
   const roles = user?.roles || [];
   const canCreate = Boolean(user);
@@ -228,29 +228,22 @@ export default function SystemOverview() {
             </div>
           );
         })}
-        <a href="#visibility-calculator" className="group flex items-center justify-between gap-4 bg-white px-5 py-4 hover:bg-slate-50">
-          <div className="flex items-center gap-3">
-            <EyeIcon className="h-5 w-5 shrink-0 text-[#7899a7]" />
-            <div>
-              <p className="text-base font-semibold text-slate-900">可见性计算</p>
-              <p className="mt-1 text-sm text-slate-500">打开计算工具</p>
-            </div>
-          </div>
-          <ArrowRightIcon className="h-5 w-5 shrink-0 text-slate-300 transition-transform group-hover:translate-x-1 group-hover:text-[#3347b8]" />
-        </a>
       </nav>
 
-      <section className="py-5" aria-labelledby="recent-title">
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <h2 id="recent-title" className="text-2xl font-semibold text-slate-950">我的提案申请</h2>
-          </div>
+      <section className="pt-7 pb-4" aria-labelledby="recent-title">
+        <div className="flex items-center justify-between gap-4">
+          <h2 id="recent-title" className="flex items-center gap-3 text-2xl font-semibold tracking-tight text-slate-950">
+            <span aria-hidden="true" className="h-6 w-1 shrink-0 rounded-full bg-[#3347b8]" />
+            我的提案申请
+          </h2>
           <Link href={directoryHref} className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#3347b8] hover:text-[#263b9a]">
             查看全部 <ArrowRightIcon className="h-4 w-4" />
           </Link>
         </div>
 
-        <div className="mt-5 border-y border-slate-200 bg-white">
+        {pendingResultCount > 0 && <p role="status" className="mt-4 border-l-4 border-[#3347b8] bg-indigo-50 px-4 py-3 text-sm text-slate-800">有 <strong>{pendingResultCount}</strong> 项提案已获得数据并办结，等待你提交研究成果和论文初稿。<Link href={directoryHref} className="ml-2 font-semibold text-[#3347b8] hover:underline">查看我的提案申请 →</Link></p>}
+
+        <div className="mt-4 border-y border-slate-200 bg-white">
           <div className="hidden grid-cols-[minmax(0,1fr)_140px_190px_24px] gap-4 border-b border-slate-100 px-4 py-2.5 text-[11px] font-semibold text-slate-400 sm:grid">
             <span>提案</span><span>类型</span><span>当前进度</span><span aria-hidden="true" />
           </div>
@@ -262,6 +255,7 @@ export default function SystemOverview() {
                 <div className="min-w-0">
                   <p className="font-mono text-[10px] text-slate-400">RPS-{String(proposal.id).padStart(5, '0')}</p>
                   <p className="mt-1 truncate text-base font-semibold text-slate-900">{proposal.title}</p>
+                  {proposal.can_submit_result && <p className="mt-1 text-xs font-semibold text-[#3347b8]">待提交研究成果</p>}
                 </div>
                 <span className={`w-fit rounded-full px-2.5 py-1 text-xs font-semibold ${kind === 'opportunity' ? 'bg-amber-50 text-amber-700' : 'bg-[#3347b8]/10 text-[#3347b8]'}`}>
                   {kind === 'opportunity' ? '机遇观测' : '研究提案'}
@@ -278,22 +272,18 @@ export default function SystemOverview() {
         </div>
       </section>
 
-      <section id="visibility-calculator" className="scroll-mt-6 border-y border-slate-200 bg-white px-5 py-6 sm:px-6" aria-labelledby="visibility-title">
-        <div className="flex flex-col gap-4 border-b border-slate-100 pb-5 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-start gap-4">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#3347b8]/10 text-[#3347b8]">
-              <ChartBarIcon className="h-6 w-6" />
-            </div>
-            <div>
-              <h2 id="visibility-title" className="text-xl font-semibold text-slate-950">目标可见性计算</h2>
-            </div>
-          </div>
+      <section id="visibility-calculator" className="scroll-mt-6 pt-7 pb-6" aria-labelledby="visibility-title">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 id="visibility-title" className="flex items-center gap-3 text-2xl font-semibold tracking-tight text-slate-950">
+            <span aria-hidden="true" className="h-6 w-1 shrink-0 rounded-full bg-[#3347b8]" />
+            目标可见性计算
+          </h2>
           <p className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold ${visibilityOperationId ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'}`}>
             {visibilityOperationId ? '计算服务已连接' : '计算服务待管理员配置'}
           </p>
         </div>
 
-        <form onSubmit={runVisibilityCalculation} className="pt-5">
+        <form onSubmit={runVisibilityCalculation} className="mt-4 border-y border-slate-200 bg-white px-5 py-5 sm:px-6">
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-12">
               <label className="sm:col-span-2 xl:col-span-4">
                 <span className="mb-1.5 block text-xs font-semibold text-slate-600">目标名称</span>

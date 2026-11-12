@@ -137,6 +137,10 @@ export async function triggerProposalTransition(proposalId, payload) {
   return post(`/api/proposals/${proposalId}/transitions`, payload);
 }
 
+export async function updateProposalFormalReturnDeadline(proposalId, deadline) {
+  return patch(`/api/proposals/${proposalId}/formal-return-deadline`, { deadline });
+}
+
 export async function submitProposalReview(proposalId, payload) {
   return post(`/api/proposals/${proposalId}/reviews`, payload);
 }
@@ -147,6 +151,10 @@ export async function setProposalReviewVisibility(proposalId, visible) {
 
 export async function updateProposal(proposalId, payload) {
   return patch(`/api/proposals/${proposalId}`, payload);
+}
+
+export async function deleteProposalDraft(proposalId) {
+  return del(`/api/proposals/${proposalId}`);
 }
 
 export async function assignProposalReviewer(proposalId, payload) {
@@ -166,6 +174,60 @@ export async function revokeProposalData(proposalId, instrumentCode, productName
     method: 'DELETE',
     body: JSON.stringify({ product_name: productName }),
   });
+}
+
+// --- Research outcomes ---
+export async function listResearchOutputs() {
+  return fetcher('/api/results/');
+}
+
+export async function getResearchOutput(proposalId) {
+  return fetcher(`/api/results/proposal/${proposalId}`);
+}
+
+export async function submitResearchOutput(proposalId, payload) {
+  return post(`/api/results/proposal/${proposalId}`, payload);
+}
+
+export async function commentResearchOutput(proposalId, body) {
+  return post(`/api/results/proposal/${proposalId}/comments`, { body });
+}
+
+export async function reviseResearchOutput(proposalId, payload) {
+  return post(`/api/results/proposal/${proposalId}/revision`, payload);
+}
+
+export async function decideResearchOutput(proposalId, payload) {
+  return post(`/api/results/proposal/${proposalId}/committee-decision`, payload);
+}
+
+export async function registerJournalSubmission(proposalId, journal_name) {
+  return post(`/api/results/proposal/${proposalId}/journal-submission`, { journal_name });
+}
+
+export async function publishResearchOutput(proposalId, payload) {
+  return post(`/api/results/proposal/${proposalId}/final-publication`, payload);
+}
+
+export async function downloadResearchOutputFile(proposalId, kind, filename) {
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  if (!token) throw new Error('请先登录');
+  const response = await fetch(`${API_URL}/api/results/proposal/${proposalId}/files/${kind}`, {
+    headers: { 'x-access-token': token },
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.message || '下载失败');
+  }
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename || `${kind}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 // --- Workflow ---
@@ -230,6 +292,19 @@ export async function updateAdminRole(id, payload) {
 
 export async function deleteAdminRole(id) {
   return del(`/api/admin/roles/${id}`);
+}
+
+// --- Proposal batches ---
+export async function listProposalSeasons() {
+  return fetcher('/api/seasons/');
+}
+
+export async function createProposalSeason(payload) {
+  return post('/api/seasons/', payload);
+}
+
+export async function updateProposalSeason(id, payload) {
+  return patch(`/api/seasons/${id}`, payload);
 }
 
 // --- Form Templates ---

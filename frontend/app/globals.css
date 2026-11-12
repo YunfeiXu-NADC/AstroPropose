@@ -66,6 +66,43 @@ textarea:focus-visible {
     outline: none;
   }
 
+  .proposal-editor .rps-field {
+    min-height: 2.75rem;
+    border-radius: 0.625rem;
+    border-color: #cbd5e1;
+    background: #fbfcfe;
+    padding: 0.625rem 0.875rem;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    color: #172033;
+    box-shadow: none;
+  }
+
+  .proposal-editor .rps-field:focus {
+    border-color: var(--rps-primary);
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(51, 71, 184, 0.1);
+  }
+
+  .proposal-editor textarea.rps-field {
+    min-height: 6.5rem;
+  }
+
+  .proposal-editor input[type="datetime-local"].rps-field,
+  .proposal-editor select.rps-field {
+    color-scheme: light;
+  }
+
+  .proposal-editor select.rps-field {
+    -webkit-appearance: none;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 18 18' fill='none'%3E%3Cpath d='m4 6.5 5 5 5-5' stroke='%2364758b' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.875rem center;
+    background-size: 1rem;
+    padding-right: 2.75rem;
+  }
+
   .rps-list-table {
     width: 100%;
     border-collapse: collapse;

@@ -122,6 +122,10 @@ def test_observation_result_requires_real_feedback_and_then_closes(app, client, 
     final = {'status': 'completed', 'summary': '观测执行完成，结果已提交'}
     assert client.post(f'{url}/instruments/LF/feedback', json={'payload': final}, headers=admin).status_code == 200
     assert client.get(url, headers=owner).get_json()['instruments'][0]['scheduling_feedback']['completed_at']
+    assert client.post(f'{url}/transitions', json={'transition': 'record_feedback'}, headers=admin).status_code == 409
+    assert client.post(f'{url}/instruments/LF/data-allocation', json={
+        'observation_id': 'OBS-1', 'product_name': '观测数据',
+    }, headers=admin).status_code == 200
     assert client.post(f'{url}/transitions', json={'transition': 'record_feedback'}, headers=admin).status_code == 200
     assert client.get(f'{url}/transitions', headers=admin).get_json()['transitions'] == []
     actions = client.get(f'{url}/transitions', headers=owner).get_json()['transitions']

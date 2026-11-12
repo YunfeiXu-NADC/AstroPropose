@@ -86,7 +86,7 @@ const opportunityDefinition = {
   nodes: [
     stateNode('draft', '草稿', 40, 150, '填写机遇目标；可见性分析在提交前按需调用。', 'opportunity_application', true),
     stateNode('format', '待形式审查', 260, 150, '快速检查必填信息、目标与附件。'),
-    stateNode('technical', '待技术评审', 480, 150, '技术专家快速确认观测可执行性。', 'technical_review', true),
+    stateNode('technical', '待技术评审', 480, 150, '技术专家快速确认观测可执行性。', 'rapid_technical_review', true),
     stateNode('science', '待科学评审', 700, 150, '科学专家评估科学价值和时效必要性。', 'rapid_scientific_review', true),
     stateNode('decision', '待最终决策', 920, 150, '科学委员会汇总意见并作出最终决策。', 'committee_decision', true),
     stateNode('approved', '已通过', 1140, 80, '准备推送观测编排负责人。'),
@@ -217,6 +217,13 @@ export const DSL_FORM_PRESETS = [
     key: 'technical_review', name: 'DSL 技术评审表', phase: 'review', definition: { fields: [
       { name: 'technical_feasibility', label: '技术可行性', type: 'select', required: true, options: scoreOptions },
       { name: 'instrument_match', label: '仪器与参数匹配度', type: 'select', required: true, options: scoreOptions },
+      { name: 'comments', label: '技术评审意见', type: 'textarea', required: true },
+    ] },
+  },
+  {
+    key: 'rapid_technical_review', name: 'DSL 机遇观测技术评审表', phase: 'review', definition: { fields: [
+      { name: 'response_feasibility', label: '响应时限内可执行性', type: 'select', required: true, options: scoreOptions },
+      { name: 'window_instrument_match', label: '观测窗口与仪器匹配度', type: 'select', required: true, options: scoreOptions },
       { name: 'comments', label: '技术评审意见', type: 'textarea', required: true },
     ] },
   },
