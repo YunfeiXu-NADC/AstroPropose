@@ -1,7 +1,7 @@
 {
   "name": "astropropose-frontend",
   "description": "A General and Customizable Framework for Astronomical Observing Proposals",
-  "version": "0.2.0",
+  "version": "0.1.3",
   "private": true,
   "scripts": {
     "dev": "next dev",
