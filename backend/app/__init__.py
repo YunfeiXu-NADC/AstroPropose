@@ -48,6 +48,12 @@ def create_app(config_class=Config):
     from app.api.admin import bp as admin_bp
     app.register_blueprint(admin_bp, url_prefix='/api/admin', strict_slashes=False)
 
+    from app.api.seasons import bp as seasons_bp
+    app.register_blueprint(seasons_bp, url_prefix='/api/seasons', strict_slashes=False)
+
+    from app.api.results import bp as results_bp
+    app.register_blueprint(results_bp, url_prefix='/api/results', strict_slashes=False)
+
     @app.route('/ping')
     def ping():
         return 'pong!'

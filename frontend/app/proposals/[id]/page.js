@@ -32,6 +32,7 @@ import {
   submitProposalReview,
   triggerProposalTransition,
   updateProposal,
+  updateProposalFormalReturnDeadline,
 } from '@/lib/api';
 import { getActionButtonLabel, getActionPanelCopy } from '@/lib/proposalActionCopy.mjs';
 import WorkflowProgress from '@/components/WorkflowProgress';
@@ -47,6 +48,8 @@ const REVIEW_LABELS = {
 const REVIEW_SCORE_LABELS = {
   technical_feasibility: '技术可行性',
   instrument_match: '仪器与参数匹配度',
+  response_feasibility: '响应时限内可执行性',
+  window_instrument_match: '观测窗口与仪器匹配度',
   scientific_merit: '科学价值',
   urgency: '时效必要性',
   priority: '观测优先级',
@@ -140,7 +143,7 @@ function reviewScoreDetails(review, fields) {
   const configured = fields
     .filter((field) => review.scores?.[field.name] !== undefined && review.scores?.[field.name] !== '')
     .map((field) => `${field.label} ${review.scores[field.name]} 分`);
-  return configured.length ? configured : Object.entries(review.scores || {}).map(([name, score]) => `${name} ${score} 分`);
+  return configured.length ? configured : Object.entries(review.scores || {}).map(([name, score]) => `${REVIEW_SCORE_LABELS[name] || name} ${score} 分`);
 }
 
 function reviewScoreSummary(review) {
@@ -294,7 +297,7 @@ function Section({ id, eyebrow, title, children }) {
   return <section id={id} className="scroll-mt-8 py-5 first:pt-0"><header>{eyebrow && <p className="rps-eyebrow">{eyebrow}</p>}<h2 className="flex items-center gap-2.5 text-lg font-semibold text-[#293d9f]"><span className="h-5 w-1 rounded-full bg-[#5369cf]" aria-hidden="true" />{title}</h2></header><div className="mt-3 min-w-0">{children}</div></section>;
 }
 
-function ObservationFeedback({ proposal, canAllocateData, onAddData, onRevokeData, saving }) {
+function ObservationFeedback({ proposal, canAllocateData, canRevokeData, onAddData, onRevokeData, saving }) {
   const [pendingRevoke, setPendingRevoke] = useState(null);
   const feedbacks = (proposal.instruments || [])
     .map((entry) => ({ instrument: entry.instrument, feedback: entry.scheduling_feedback || {} }))
@@ -307,10 +310,10 @@ function ObservationFeedback({ proposal, canAllocateData, onAddData, onRevokeDat
         observationId: product.observation_id || entry.scheduling_feedback?.observation_id,
       }))
     );
-    if (!products.length && !canAllocateData) return null;
+    if (!products.length && !canAllocateData && !canRevokeData) return null;
     return <Section id="data-allocation" title="观测数据">
       <div className="flex flex-wrap items-center justify-between gap-3 pb-2">
-        <p className="text-sm text-slate-600">{products.length ? `已开放 ${products.length} 个数据产品` : '尚未分配数据产品'}</p>
+        <p className="text-sm text-slate-600">{products.length ? `已开放 ${products.length} 个数据产品` : '尚未分配数据产品'}{!proposal.season?.can_allocate_data ? ' · 已超过数据释放最晚时间，授权不可修改' : ''}</p>
         {canAllocateData && <button type="button" onClick={onAddData} className="rps-button-secondary text-sm"><PlusIcon className="h-4 w-4" /> {products.length ? '追加数据' : '分配数据'}</button>}
       </div>
       {products.length > 0 && <div className="divide-y divide-slate-100 border-t border-slate-200">
@@ -322,7 +325,7 @@ function ObservationFeedback({ proposal, canAllocateData, onAddData, onRevokeDat
               <div className="min-w-0"><h3 className="break-words text-sm font-semibold text-slate-900">{product.name}</h3><p className="mt-1 text-xs text-slate-500">{product.instrument.name}（{product.instrument.code}）{product.observationId ? ` · ${product.observationId}` : ''}{product.format ? ` · ${product.format}` : ''}{product.size ? ` · ${product.size}` : ''}</p>{product.description && <p className="mt-1 text-xs leading-5 text-slate-500">{product.description}</p>}</div>
               <div className="flex shrink-0 items-center gap-4 text-sm font-semibold">
                 {product.data_url ? <a href={product.data_url} download={inlineData ? product.name : undefined} target={inlineData ? undefined : '_blank'} rel={inlineData ? undefined : 'noopener noreferrer'} className="text-[#3347b8] hover:underline">{inlineData ? '下载数据' : '打开数据'} <ArrowTopRightOnSquareIcon className="inline h-4 w-4" /></a> : <span className="text-slate-400">暂无访问链接</span>}
-                {canAllocateData && <button type="button" disabled={saving} onClick={() => setPendingRevoke({ instrument: product.instrument.code, name: product.name })} className="text-rose-700 hover:underline disabled:opacity-50">取消分配</button>}
+                {canRevokeData && <button type="button" disabled={saving} onClick={() => setPendingRevoke({ instrument: product.instrument.code, name: product.name })} className="text-rose-700 hover:underline disabled:opacity-50">取消分配</button>}
               </div>
             </div>
             {confirming && <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md bg-rose-50 px-3 py-2 text-xs text-rose-800"><span>确认取消「{product.name}」的访问授权？{products.length === 1 ? '提案将返回待分配状态。' : ''}</span><span className="flex gap-3 font-semibold"><button type="button" disabled={saving} onClick={() => setPendingRevoke(null)}>保留</button><button type="button" disabled={saving} onClick={async () => { if (await onRevokeData(product.instrument.code, product.name)) setPendingRevoke(null); }}>确认取消</button></span></div>}
@@ -334,9 +337,12 @@ function ObservationFeedback({ proposal, canAllocateData, onAddData, onRevokeDat
 
   if (!feedbacks.length) return null;
   const dataReady = feedbacks.some((entry) => entry.feedback.status === 'data_ready' || entry.feedback.data_products?.length);
+  const opportunityProducts = (proposal.instruments || []).flatMap((entry) =>
+    (entry.scheduling_feedback?.data_products || []).map((product) => ({ ...product, instrument: entry.instrument }))
+  );
 
   return (
-    <Section id="observation-feedback" title={dataReady ? '已开放数据' : '观测结果'}>
+    <><Section id="observation-feedback" title="观测结果">
       <div className="space-y-5">
         {feedbacks.map(({ instrument, feedback }) => (
           <article key={instrument.code} className="border-l-2 border-emerald-500 bg-emerald-50/40 px-5 py-4">
@@ -354,6 +360,10 @@ function ObservationFeedback({ proposal, canAllocateData, onAddData, onRevokeDat
         ))}
       </div>
     </Section>
+    {(opportunityProducts.length > 0 || canAllocateData || canRevokeData) && <Section id="data-allocation" title="观测数据">
+      <div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm text-slate-600">{opportunityProducts.length ? `已开放 ${opportunityProducts.length} 个数据产品` : '尚未分配数据产品'}</p>{canAllocateData && <button type="button" onClick={onAddData} className="rps-button-secondary text-sm"><PlusIcon className="h-4 w-4" /> 分配数据</button>}</div>
+      <div className="mt-3 divide-y divide-slate-100 border-t border-slate-200">{opportunityProducts.map((product) => <article key={`${product.instrument.code}-${product.name}`} className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm"><span><strong>{product.name}</strong><span className="ml-2 text-xs text-slate-500">{product.instrument.name} · {product.observation_id}</span></span><span className="flex gap-4">{product.data_url && <a href={product.data_url} download={product.data_url.startsWith('data:') ? product.name : undefined} target={product.data_url.startsWith('data:') ? undefined : '_blank'} rel="noopener noreferrer" className="font-medium text-[#3347b8]">下载数据</a>}{canRevokeData && <button type="button" disabled={saving} onClick={() => { if (window.confirm(`确认取消「${product.name}」的数据授权？`)) onRevokeData(product.instrument.code, product.name); }} className="text-rose-700">取消分配</button>}</span></article>)}</div>
+    </Section>}</>
   );
 }
 
@@ -460,6 +470,7 @@ export default function ProposalDetailPage() {
   const [reviewerDialogOpen, setReviewerDialogOpen] = useState(false);
   const [feedbackDialogOpen, setFeedbackDialogOpen] = useState(false);
   const [feedbackValues, setFeedbackValues] = useState({ instrument_code: '', status: 'scheduled', visibility_window: '', summary: '' });
+  const [returnDeadline, setReturnDeadline] = useState('');
   const [editing, setEditing] = useState(false);
   const [editTitle, setEditTitle] = useState('');
   const [editAbstract, setEditAbstract] = useState('');
@@ -471,6 +482,7 @@ export default function ProposalDetailPage() {
   const [error, setError] = useState('');
 
   const hydrateEditor = (detail) => {
+    setReturnDeadline((detail.formal_return_deadline || detail.season?.end_date || '').slice(0, 16));
     setEditTitle(detail.title || '');
     setEditAbstract(detail.abstract || '');
     setEditPhaseValues(detail.phases?.find((phase) => phase.phase === 'phase1')?.payload || {});
@@ -518,7 +530,7 @@ export default function ProposalDetailPage() {
   ));
   const isReviewMode = !isAdminMode && Boolean(proposal?.permissions?.can_review);
   const isResearchDataQueue = getProposalKind(proposal?.proposal_type?.name) === 'research'
-    && ['待分配观测数据', '数据已授权', '已完成'].includes(proposal?.status);
+    && proposal?.status === '待分配观测数据';
   const canManageData = proposal?.permissions?.can_manage_data ?? Boolean(
     isResearchDataQueue && user?.roles?.some((role) => ['Admin', 'Proposal Manager'].includes(role)),
   );
@@ -577,10 +589,15 @@ export default function ProposalDetailPage() {
 
   const submitReview = async (event) => {
     event.preventDefault();
+    const currentScores = Object.fromEntries(scoreFields.map((field) => [field.name, scores[field.name]]));
+    if (Object.values(currentScores).some((score) => !score) || !recommendation || !comments.trim()) {
+      setError('请填写本提案的全部评分、评审建议和意见。');
+      return;
+    }
     setSaving(true);
     setError('');
     try {
-      await submitProposalReview(id, { scores, recommendation, comments });
+      await submitProposalReview(id, { scores: currentScores, recommendation, comments });
       await refresh();
       setMessage('评审意见已保存。');
     } catch (requestError) {
@@ -679,11 +696,28 @@ export default function ProposalDetailPage() {
     setSaving(true);
     setError('');
     try {
-      await triggerProposalTransition(id, { transition: name });
+      await triggerProposalTransition(id, {
+        transition: name,
+        ...(name === 'format_revision' ? { context: { formal_return_deadline: returnDeadline || null } } : {}),
+      });
       await refresh();
       setMessage('提案流程状态已更新。');
     } catch (requestError) {
       setError(requestError.info?.message || '流程操作执行失败。');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveReturnDeadline = async () => {
+    setSaving(true);
+    setError('');
+    try {
+      await updateProposalFormalReturnDeadline(id, returnDeadline || null);
+      await refresh();
+      setMessage('最晚重新提交时间已更新。');
+    } catch (requestError) {
+      setError(requestError.info?.message || '最晚提交时间保存失败。');
     } finally {
       setSaving(false);
     }
@@ -717,14 +751,19 @@ export default function ProposalDetailPage() {
       const updated = await refresh();
       const allFinal = Boolean(updated.instruments?.length)
         && updated.instruments.every((entry) => hasFinalObservationFeedback(entry.scheduling_feedback));
-      if (feedbackValues.status !== 'scheduled' && allFinal) {
+      const hasCompleted = updated.instruments?.some((entry) => entry.scheduling_feedback?.status === 'completed');
+      const hasData = updated.instruments?.some((entry) => entry.scheduling_feedback?.data_products?.length);
+      const readyToClose = allFinal && (!hasCompleted || hasData);
+      if (feedbackValues.status !== 'scheduled' && readyToClose) {
         await triggerProposalTransition(id, { transition: 'record_feedback' });
         await refresh();
       }
       setFeedbackDialogOpen(false);
       setMessage(feedbackValues.status === 'scheduled'
         ? '观测安排已保存；执行结束后请继续提交最终结果。'
-        : allFinal ? '最终执行结果已提交，提案已办结。' : '该仪器结果已保存；请继续填写其他仪器的最终结果。');
+        : readyToClose ? '最终执行结果已提交，提案已办结。'
+          : allFinal ? '观测结果已保存。请先分配数据，再办结提案。'
+            : '该仪器结果已保存；请继续填写其他仪器的最终结果。');
     } catch (requestError) {
       setError(requestError.info?.message || '执行反馈提交失败。');
     } finally {
@@ -790,9 +829,10 @@ export default function ProposalDetailPage() {
     ? transitions.filter((action) => !delegatedRoleForAction(action) && action.name !== reviewAdvanceName)
     : transitions.filter((action) => !(isReviewMode && proposal.permissions?.review_type === 'committee' && FINAL_DECISIONS[proposalKind].some((choice) => choice.value === action.name)));
   const showReviewAssignment = isAdminMode && Boolean(proposal.permissions?.review_type);
-  const showDataAllocation = (isAdminMode || isAllocationMode) && canManageData && allocatedProductCount > 0;
+  const showDataAllocation = (isAdminMode || isAllocationMode) && allocatedProductCount > 0;
   const showFlowActions = !isAllocationMode && visibleTransitions.length > 0;
-  const showAside = isReviewMode || showReviewAssignment || showDataAllocation || showFlowActions;
+  const showReturnDeadlineEditor = isAdminMode && proposal.status === '待修改';
+  const showAside = isReviewMode || showReviewAssignment || showDataAllocation || showFlowActions || showReturnDeadlineEditor;
   const statusPresentation = getProposalStatusPresentation(proposal.status);
   const headerTone = HEADER_TONES[statusPresentation.tone];
 
@@ -804,7 +844,7 @@ export default function ProposalDetailPage() {
       <header className="mt-4 pb-5">
         <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-start">
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400"><span className="font-mono">{['草稿', 'Draft'].includes(proposal.status) ? '未生成编号' : `RPS-${String(proposal.id).padStart(5, '0')}`}</span><span>·</span><span>{proposal.proposal_type?.name}</span><span className={`ml-1 inline-flex items-center gap-1 rounded-full border px-2.5 py-1 font-semibold ${headerTone.badge}`}>{statusPresentation.tone === 'closed' && <CheckCircleIcon className="h-3.5 w-3.5" />}{statusPresentation.label}</span></div>
+            <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400"><span className="font-mono">{['草稿', 'Draft'].includes(proposal.status) ? '未生成编号' : `RPS-${String(proposal.id).padStart(5, '0')}`}</span><span>·</span><span>{proposal.proposal_type?.name}</span>{proposal.season && <><span>·</span><span>{proposal.season.name}</span></>}<span className={`ml-1 inline-flex items-center gap-1 rounded-full border px-2.5 py-1 font-semibold ${headerTone.badge}`}>{statusPresentation.tone === 'closed' && <CheckCircleIcon className="h-3.5 w-3.5" />}{statusPresentation.label}</span></div>
             {editing ? <input required value={editTitle} onChange={(event) => setEditTitle(event.target.value)} className="rps-field mt-3 max-w-4xl text-lg font-semibold" /> : <h1 className={`mt-2 text-2xl font-semibold tracking-tight sm:text-3xl ${headerTone.title}`}>{proposal.title}</h1>}
           </div>
           <div className="flex flex-col items-start gap-3 lg:shrink-0 lg:items-end">
@@ -828,6 +868,10 @@ export default function ProposalDetailPage() {
         <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-slate-800">{proposal.final_decision.reason || '未记录决策理由。'}</p>
       </section>}
 
+      {proposal.status === '待修改' && proposal.formal_return_deadline && <p className="mt-3 border-l-4 border-amber-500 bg-amber-50 px-4 py-3 text-sm text-amber-900">形式审查已退回，请于 <strong>{formatDate(proposal.formal_return_deadline)}</strong> 前重新提交；超过时间将无法提交。</p>}
+
+      {isOwnerMode && proposal.can_submit_result && !proposal.research_output && <div role="status" className="mt-4 flex flex-wrap items-center justify-between gap-3 border-l-4 border-[#3347b8] bg-indigo-50 px-4 py-3 text-sm text-slate-800"><span><strong>待提交研究成果：</strong>本提案已办结并开放数据，请提交成果摘要和论文初稿。</span><Link href={`/results/proposal/${proposal.id}`} className="font-semibold text-[#3347b8] hover:underline">提交研究成果 →</Link></div>}
+
       {error && <p className="mt-5 border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
       {message && <p className="mt-5 border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{message}</p>}
 
@@ -836,7 +880,8 @@ export default function ProposalDetailPage() {
           <Section title="摘要">{editing ? <div><textarea rows={10} required value={editAbstract} onChange={(event) => setEditAbstract(event.target.value)} className="rps-field resize-y leading-7" /><p className="mt-1 text-xs text-slate-500">建议 400–600 字 · 已写 {countCharacters(editAbstract)} 字</p></div> : <p className="max-w-[80ch] whitespace-pre-wrap break-words text-base leading-7 text-slate-700">{proposal.abstract || '未填写摘要。'}</p>}</Section>
           <Section title="申请内容">{editing ? <EditableForm template={proposal.forms?.application} values={editPhaseValues} onChange={setEditPhaseValues} /> : <ReadonlyForm template={proposal.forms?.application} values={proposal.phases?.[0]?.payload || {}} />}</Section>
           {(proposal.instruments || []).map((entry) => <Section key={entry.id} title={`所选仪器：${entry.instrument.name}（${entry.instrument.code}）`}>{editing ? <EditableForm template={proposal.forms?.instruments?.[entry.instrument.code]} values={editInstrumentValues[entry.instrument.code] || {}} onChange={(values) => setEditInstrumentValues((previous) => ({ ...previous, [entry.instrument.code]: values }))} /> : <ReadonlyForm compact template={proposal.forms?.instruments?.[entry.instrument.code]} values={entry.form_data || {}} />}</Section>)}
-          {!editing && <ObservationFeedback proposal={proposal} canAllocateData={canAllocateData && (isAdminMode || isAllocationMode)} onAddData={openAllocationDialog} onRevokeData={revokeData} saving={saving} />}
+          {!editing && <ObservationFeedback proposal={proposal} canAllocateData={canAllocateData && (isAdminMode || isAllocationMode)} canRevokeData={canManageData && (isAdminMode || isAllocationMode)} onAddData={openAllocationDialog} onRevokeData={revokeData} saving={saving} />}
+          {!editing && isOwnerMode && proposal.research_output && <Section title="科研成果"><p className="mb-3 text-sm text-slate-600">查看成果公示、公开意见及发表进度。</p><Link href={`/results/proposal/${proposal.id}`} className="rps-button-primary">查看科研成果</Link></Section>}
           {!editing && <MaterialsDownload sources={attachmentSources} onDownload={downloadSummary} />}
           {!editing && detailReviews.length > 0 && <Section title="评审与决策记录">{isAdminMode && !reviewsInAssignmentPanel && <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-[#3347b8]/5 px-4 py-3"><p className="text-sm text-slate-700">申请者可见：<strong className={proposal.review_visibility === 'visible' ? 'text-emerald-700' : 'text-slate-900'}>{proposal.review_visibility === 'visible' ? '已公开' : '未公开'}</strong></p><button type="button" onClick={changeReviewVisibility} disabled={saving} className="rps-button-secondary">{proposal.review_visibility === 'visible' ? '对申请者隐藏' : '向申请者公开'}</button></div>}<div className="space-y-4">{detailReviews.map((review) => <article key={review.id} className="border-l-2 border-[#3347b8] bg-slate-50 px-4 py-4"><div className="flex flex-wrap items-center justify-between gap-3"><p className="text-sm font-semibold text-slate-900">{review.review_type === 'committee' ? '决策理由' : REVIEW_LABELS[review.review_type]} · {review.reviewer?.username}</p><time className="text-xs text-slate-400">{formatDate(review.submitted_at)}</time></div><p className="mt-3 text-sm leading-6 text-slate-700">{review.comments}</p><p className="mt-2 text-xs text-slate-500">{reviewScoreSummary(review)}{review.review_type !== 'committee' ? ` · ${RECOMMENDATIONS.find((item) => item.value === review.recommendation)?.label || ''}` : ''}</p></article>)}</div></Section>}
           {!editing && proposal.history?.length > 0 && <details className="py-5"><summary className="cursor-pointer text-sm font-semibold text-[#293d9f]">查看流程记录（{proposal.history.length}）</summary><ol className="mt-4 space-y-4">{proposal.history.map((item) => <li key={item.id} className="flex gap-3 text-sm"><CheckCircleIcon className="mt-0.5 h-5 w-5 shrink-0 text-[#3347b8]" /><div><p className="font-medium text-slate-800">{item.from_state || '创建'} → {item.to_state}</p><p className="mt-1 text-xs text-slate-400">{item.acted_by || '系统'} · {formatDate(item.acted_at)}</p></div></li>)}</ol></details>}
@@ -854,7 +899,7 @@ export default function ProposalDetailPage() {
 
           {isReviewMode && proposal.permissions?.review_type !== 'committee' && <div className="border border-slate-200 bg-white p-5 shadow-sm">
             <p className="rps-eyebrow">我的评审任务</p><h2 className="mt-2 text-lg font-semibold text-slate-950">{reviewTemplate?.name || REVIEW_LABELS[proposal.permissions.review_type]}</h2><p className="mt-2 text-xs leading-5 text-slate-500">评分和评语仅在提交后计入本阶段评审结果。</p>
-            <div className="mt-5 space-y-4">{scoreFields.map((field) => <label key={field.name} className="block"><span className="mb-1.5 block text-sm font-semibold text-slate-700">{field.label}</span><select required value={scores[field.name] || ''} onChange={(event) => setScores((previous) => ({ ...previous, [field.name]: event.target.value }))} className="rps-field"><option value="">请选择</option>{(field.options || []).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>)}<label className="block"><span className="mb-1.5 block text-sm font-semibold text-slate-700">评审建议</span><select required value={recommendation === 'revise' ? '' : recommendation} onChange={(event) => setRecommendation(event.target.value)} className="rps-field"><option value="">请选择</option>{RECOMMENDATIONS.filter((item) => item.value !== 'revise').map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label><label className="block"><span className="mb-1.5 block text-sm font-semibold text-slate-700">{commentField?.label || '评审意见'}</span><textarea required rows={6} value={comments} onChange={(event) => setComments(event.target.value)} className="rps-field resize-y" /></label></div>
+            <div className="mt-5 space-y-4">{scoreFields.map((field) => <label key={field.name} className="block"><span className="mb-1.5 block text-sm font-semibold text-slate-700">{field.label}</span><select required value={scores[field.name] || ''} onChange={(event) => setScores((previous) => ({ ...previous, [field.name]: event.target.value }))} className="rps-field"><option value="">请选择</option>{(field.options || []).map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>)}<fieldset><legend className="mb-1.5 text-sm font-semibold text-slate-700">评审建议</legend><div className="grid grid-cols-2 gap-2">{RECOMMENDATIONS.filter((item) => item.value !== 'revise').map((item) => <label key={item.value} className={`flex cursor-pointer items-center justify-center gap-2 rounded-lg border px-3 py-2.5 text-sm font-medium ${recommendation === item.value ? 'border-[#3347b8] bg-[#3347b8]/[0.07] text-[#293d9f]' : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`}><input type="radio" name="review-recommendation" value={item.value} checked={recommendation === item.value} onChange={() => setRecommendation(item.value)} className="accent-[#3347b8]" />{item.label}</label>)}</div></fieldset><label className="block"><span className="mb-1.5 block text-sm font-semibold text-slate-700">{commentField?.label || '评审意见'}</span><textarea required rows={6} value={comments} onChange={(event) => setComments(event.target.value)} className="rps-field resize-y" /></label></div>
             <button type="button" onClick={submitReview} disabled={saving} className="rps-button-primary mt-5 w-full">{saving ? '正在保存…' : ownReview ? '更新评审意见' : '提交评审意见'}</button>
           </div>}
 
@@ -880,21 +925,34 @@ export default function ProposalDetailPage() {
             <nav aria-label="定位到已开放数据" className="mt-3 divide-y divide-slate-100 border-t border-slate-100">{allocatedProducts.map((product) => <a key={product.anchor} href={`#${product.anchor}`} className="flex items-center justify-between gap-3 py-3 text-sm text-[#3347b8] hover:underline"><span className="min-w-0 truncate">{product.name}</span><span className="shrink-0 text-xs text-slate-400">{product.instrument} ↗</span></a>)}</nav>
           </div>}
 
+          {showReturnDeadlineEditor && <div className="border border-slate-200 bg-white p-5">
+            <h2 className="text-base font-semibold text-slate-950">退回提案的提交期限</h2>
+            <p className="mt-2 text-xs leading-5 text-slate-500">不能晚于批次申请截止；不填写时沿用批次截止时间。</p>
+            <label className="mt-4 block text-sm font-semibold text-slate-700">最晚重新提交时间
+              <input type="datetime-local" value={returnDeadline} max={proposal.season?.end_date?.slice(0, 16) || undefined} onChange={(event) => setReturnDeadline(event.target.value)} className="rps-field mt-1.5" />
+            </label>
+            <button type="button" onClick={saveReturnDeadline} disabled={saving} className="rps-button-primary mt-4 w-full justify-center">保存期限</button>
+          </div>}
+
           {showFlowActions && (
             <div className="border border-slate-200 bg-white p-5">
               <h2 className="text-base font-semibold text-slate-950">{actionPanel.title}</h2>
               {actionPanel.description && <p className="mt-2 text-xs leading-5 text-slate-500">{actionPanel.description}</p>}
               {!actionsUnlocked && <p className="mt-3 flex gap-2 text-xs leading-5 text-amber-700"><ExclamationTriangleIcon className="mt-0.5 h-4 w-4 shrink-0" />请先提交本人的评审意见。</p>}
               {proposal.status === '执行反馈' && hasFinalFeedback && <a href="#observation-feedback" className="mt-3 inline-block text-xs font-semibold text-[#3347b8] hover:underline">查看执行结果</a>}
+              {isAdminMode && proposal.status === '待形式审查' && visibleTransitions.some((action) => action.name === 'format_revision') && <label className="mt-4 block text-sm font-semibold text-slate-700">退回后最晚重新提交
+                <input type="datetime-local" value={returnDeadline} max={proposal.season?.end_date?.slice(0, 16) || undefined} onChange={(event) => setReturnDeadline(event.target.value)} className="rps-field mt-1.5" />
+                <span className="mt-1 block text-xs font-normal leading-5 text-slate-500">默认批次申请截止时间，不得晚于此时间。</span>
+              </label>}
               {showFlowActions && <div className="mt-4 space-y-2">{visibleTransitions.map((action) => (
                 <button
                   key={action.name}
                   type="button"
                   disabled={saving || !actionsUnlocked}
-                  onClick={() => action.name === 'record_feedback' ? openSchedulingFeedback() : action.name === 'grant_data' ? openAllocationDialog() : executeTransition(action.name)}
+                  onClick={() => action.name === 'record_feedback' ? (hasFinalFeedback ? executeTransition(action.name) : openSchedulingFeedback()) : action.name === 'grant_data' ? openAllocationDialog() : executeTransition(action.name)}
                   className={`${/revision|reject/.test(action.name) ? 'rps-button-secondary' : 'rps-button-primary'} w-full justify-center`}
                 >
-                  {getActionButtonLabel(action, proposalKind)}
+                  {action.name === 'record_feedback' && hasFinalFeedback ? '确认办结提案' : getActionButtonLabel(action, proposalKind)}
                 </button>
               ))}</div>}
             </div>

@@ -1,7 +1,18 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { DSL_WORKFLOW_PRESETS } from './dslWorkflowPresets.mjs';
+import { DSL_FORM_PRESETS, DSL_WORKFLOW_PRESETS } from './dslWorkflowPresets.mjs';
+
+test('research and opportunity reviews use distinct score criteria', () => {
+  const scoreNames = (workflowKey, nodeId) => {
+    const workflow = DSL_WORKFLOW_PRESETS.find((item) => item.key === workflowKey);
+    const formKey = workflow.definition.nodes.find((node) => node.id === nodeId).data.formKey;
+    return DSL_FORM_PRESETS.find((item) => item.key === formKey).definition.fields
+      .filter((field) => field.type === 'select').map((field) => field.name);
+  };
+  assert.notDeepEqual(scoreNames('research', 'technical'), scoreNames('opportunity', 'technical'));
+  assert.notDeepEqual(scoreNames('research', 'science'), scoreNames('opportunity', 'science'));
+});
 
 test('DSL presets provide distinct research and opportunity outcomes', () => {
   assert.equal(DSL_WORKFLOW_PRESETS.length, 2);

@@ -69,6 +69,35 @@ def test_workflow_referenced_role_cannot_be_renamed(client, admin_token, app):
     assert Role.query.get(role.id).name == "Workflow Only Role"
 
 
+def test_definition_referenced_role_cannot_be_renamed_or_deleted(client, admin_token, app):
+    role = Role(name="Definition Only Role", is_system=False)
+    workflow = Workflow(
+        name="Definition Only Workflow",
+        definition={"transitions": [{
+            "name": "submit",
+            "from": "Draft",
+            "to": "Submitted",
+            "roles": ["Definition Only Role"],
+        }]},
+    )
+    db.session.add_all([role, workflow])
+    db.session.commit()
+
+    listed = client.get("/api/admin/roles", headers=_auth_headers(admin_token))
+    assert listed.status_code == 200
+    assert next(item for item in listed.get_json() if item["id"] == role.id)["workflow_reference_count"] == 1
+
+    renamed = client.patch(
+        f"/api/admin/roles/{role.id}",
+        headers=_auth_headers(admin_token),
+        json={"name": "Renamed Role"},
+    )
+    deleted = client.delete(f"/api/admin/roles/{role.id}", headers=_auth_headers(admin_token))
+    assert renamed.status_code == 400
+    assert deleted.status_code == 400
+    assert Role.query.get(role.id).name == "Definition Only Role"
+
+
 def test_bound_role_cannot_be_deleted(client, admin_token, app):
     role = Role(name="Bound Role", is_system=False)
     user = User(username="role-bound-user", email="role-bound@example.com", is_active=True)

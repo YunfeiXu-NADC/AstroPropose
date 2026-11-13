@@ -17,10 +17,19 @@ from sqlalchemy.exc import IntegrityError
 
 from app import db
 from app.core.workflow_engine import WorkflowEngine
+from app.core.seasons import (
+    can_allocate_to_season,
+    can_submit_to_season,
+    format_beijing_datetime,
+    get_accepting_season,
+    parse_beijing_datetime,
+    serialize_season,
+)
 from app.models.models import (
     FormTemplate,
     Instrument,
     InstrumentFeedback,
+    ExternalToolExecution,
     Proposal,
     ProposalInstrument,
     ProposalPhase,
@@ -261,6 +270,34 @@ def _is_submitted_proposal(proposal):
     return state_name not in ('草稿', 'Draft') and (phase is None or phase.status != 'draft')
 
 
+def _submission_season(proposal):
+    if proposal.season and not can_submit_to_season(proposal.season) and proposal.current_state and proposal.current_state.name in ('草稿', 'Draft'):
+        return get_accepting_season() or proposal.season
+    return proposal.season
+
+
+def _return_deadline(proposal):
+    """A formal-review return can only shorten its batch's application window."""
+    batch_deadline = proposal.season.end_date if proposal.season else None
+    stored = (proposal.data or {}).get('formal_return_deadline')
+    configured = datetime.fromisoformat(stored) if stored else None
+    if configured and batch_deadline:
+        return min(configured, batch_deadline)
+    return configured or batch_deadline
+
+
+def _validated_return_deadline(proposal, value):
+    batch_deadline = proposal.season.end_date if proposal.season else None
+    if batch_deadline is None:
+        raise ValueError('该提案所属批次未设置申请截止时间')
+    deadline = parse_beijing_datetime(value) if value else batch_deadline
+    if deadline > batch_deadline:
+        raise ValueError('退回后的最晚提交时间不能超过批次申请截止时间')
+    if deadline <= datetime.utcnow():
+        raise ValueError('最晚提交时间必须晚于当前时间')
+    return deadline
+
+
 def _is_research_proposal(proposal):
     type_name = (proposal.proposal_type.name if proposal.proposal_type else '').lower()
     return '研究' in type_name or 'research' in type_name
@@ -294,19 +331,27 @@ def _is_review_stage_return(proposal, transition_name):
 
 
 def _is_data_allocation_candidate(proposal):
-    if not _is_submitted_proposal(proposal) or not _is_research_proposal(proposal):
+    if not _is_submitted_proposal(proposal):
         return False
     state_name = proposal.current_state.name if proposal.current_state else ''
-    return state_name in {
-        '待分配观测数据', '数据已授权', '已完成',
-    }
+    if _is_research_proposal(proposal):
+        return state_name == '待分配观测数据'
+    return _is_opportunity_proposal(proposal) and state_name == '已推送观测编排' and any(
+        (item.scheduling_feedback or {}).get('status') == 'completed'
+        for item in proposal.instruments
+    )
 
 
 def _can_allocate_data(proposal):
-    if not _is_data_allocation_candidate(proposal):
-        return False
+    return _is_data_allocation_candidate(proposal)
+
+
+def _can_submit_result(proposal):
     state_name = proposal.current_state.name if proposal.current_state else ''
-    return state_name in {'待分配观测数据', '数据已授权', '已完成'}
+    return _has_allocated_data(proposal) and (
+        (_is_research_proposal(proposal) and state_name in {'数据已授权', '已完成'})
+        or (_is_opportunity_proposal(proposal) and state_name in {'执行反馈', '已完成'})
+    )
 
 
 def _can_review(current_user, proposal, review_type=None):
@@ -345,7 +390,7 @@ def _can_view_proposal(current_user, proposal):
     if review_type and _can_review(current_user, proposal, review_type):
         return True
     if current_user.has_role('Proposal Manager'):
-        return _is_data_allocation_candidate(proposal)
+        return _is_data_allocation_candidate(proposal) or _has_allocated_data(proposal)
     return _can_view_scheduling_proposal(current_user, proposal)
 
 
@@ -488,7 +533,11 @@ def get_proposals(current_user):
         proposals = Proposal.query.filter_by(user_id=current_user.id).all()
 
     output = []
+    season_payloads = {}
     for proposal in proposals:
+        season = proposal.season
+        if season and season.id not in season_payloads:
+            season_payloads[season.id] = serialize_season(season)
         proposal_data = {
             'id': proposal.id,
             'title': proposal.title,
@@ -499,6 +548,9 @@ def get_proposals(current_user):
                 'email': proposal.author.email,
             },
             'status': proposal.current_state.name if proposal.current_state else 'N/A',
+            'can_submit_result': _can_submit_result(proposal) and proposal.research_output is None,
+            'research_output_status': proposal.research_output.status if proposal.research_output else None,
+            'season': season_payloads.get(season.id) if season else None,
             'proposal_type': {
                 'id': proposal.proposal_type.id,
                 'name': proposal.proposal_type.name,
@@ -585,6 +637,12 @@ def create_proposal(current_user):
     if proposal_type is None:
         return jsonify({'message': '提案类型无效'}), 400
 
+    season = get_accepting_season()
+    if season is None:
+        return jsonify({'message': '当前没有开放的提案批次，请联系系统管理员设置申请时间'}), 409
+    if data.get('season_id') is not None and str(data['season_id']) != str(season.id):
+        return jsonify({'message': '所选批次已不在申请期，请刷新页面'}), 409
+
     initial_state = _resolve_initial_state(proposal_type)
     metadata = dict(data.get('meta') or {})
     # Review disclosure is controlled only by the administrator endpoint.
@@ -596,6 +654,7 @@ def create_proposal(current_user):
         data=metadata,
         author=current_user,
         proposal_type=proposal_type,
+        season=season,
         current_state_id=initial_state.id,
     )
     db.session.add(proposal)
@@ -674,6 +733,7 @@ def create_proposal(current_user):
                 'message': 'Proposal created successfully',
                 'id': proposal.id,
                 'initial_state': initial_state.name,
+                'season_id': season.id,
             }
         ),
         201,
@@ -695,11 +755,16 @@ def copy_rejected_proposal(current_user, id):
     if source_phase is None:
         return jsonify({'message': '原提案缺少申请内容，无法复制'}), 409
 
+    season = get_accepting_season()
+    if season is None:
+        return jsonify({'message': '当前没有开放的提案批次，暂不能重新申请'}), 409
+
     draft = Proposal(
         title=source.title,
         abstract=source.abstract,
         author=current_user,
         proposal_type=source.proposal_type,
+        season=season,
         current_state=WorkflowState.query.filter_by(
             workflow_id=source.proposal_type.workflow_id, name='草稿'
         ).one(),
@@ -784,6 +849,11 @@ def get_proposal(current_user, id):
         },
         'data': proposal.data,
         'status': proposal.current_state.name if proposal.current_state else 'N/A',
+        'season': serialize_season(proposal.season) if proposal.season else None,
+        'formal_return_deadline': (
+            format_beijing_datetime(_return_deadline(proposal))
+            if proposal.current_state and proposal.current_state.name == '待修改' else None
+        ),
         'proposal_type': {
             'id': proposal.proposal_type.id,
             'name': proposal.proposal_type.name,
@@ -838,6 +908,11 @@ def get_proposal(current_user, id):
         'final_decision': _rejection_notice(proposal),
         'review_visibility': 'visible' if _reviews_released_to_applicant(proposal) else 'hidden',
         'review_progress': _review_progress(proposal),
+        'research_output': (
+            {'id': proposal.research_output.id, 'status': proposal.research_output.status}
+            if proposal.research_output else None
+        ),
+        'can_submit_result': proposal.user_id == current_user.id and _can_submit_result(proposal),
         'assignments': assignments,
         'permissions': {
             'is_owner': proposal.user_id == current_user.id,
@@ -853,15 +928,34 @@ def get_proposal(current_user, id):
             'can_manage_data': (
                 (current_user.has_role('Proposal Manager') or current_user.has_role('Admin'))
                 and _is_data_allocation_candidate(proposal)
+                and can_allocate_to_season(proposal.season)
             ),
             'can_allocate_data': (
                 (current_user.has_role('Proposal Manager') or current_user.has_role('Admin'))
                 and _can_allocate_data(proposal)
+                and can_allocate_to_season(proposal.season)
             ),
             'review_type': review_type,
         },
     }
     return jsonify(proposal_data)
+
+
+@bp.route('/<int:id>/formal-return-deadline', methods=['PATCH'])
+@token_required
+def update_formal_return_deadline(current_user, id):
+    if not current_user.has_role('Admin'):
+        return jsonify({'message': '仅系统管理员可设置退回提案的最晚提交时间'}), 403
+    proposal = Proposal.query.get_or_404(id)
+    if not proposal.current_state or proposal.current_state.name != '待修改':
+        return jsonify({'message': '仅可调整形式审查退回提案的最晚提交时间'}), 409
+    try:
+        deadline = _validated_return_deadline(proposal, (request.get_json() or {}).get('deadline'))
+    except ValueError as exc:
+        return jsonify({'message': str(exc)}), 400
+    proposal.data = {**(proposal.data or {}), 'formal_return_deadline': deadline.isoformat()}
+    db.session.commit()
+    return jsonify({'formal_return_deadline': format_beijing_datetime(deadline)})
 
 
 @bp.route('/<int:id>/document', methods=['GET'])
@@ -993,6 +1087,22 @@ def assign_reviewer(current_user, id):
     }})
 
 
+@bp.route('/<int:id>', methods=['DELETE'])
+@token_required
+def delete_draft(current_user, id):
+    proposal = Proposal.query.get_or_404(id)
+    if proposal.user_id != current_user.id:
+        return jsonify({'message': '只能删除本人草稿'}), 403
+    if not proposal.current_state or proposal.current_state.name not in ('草稿', 'Draft'):
+        return jsonify({'message': '只有未提交的草稿可以删除'}), 409
+
+    # Keep execution logs for audit, without retaining a reference to the deleted draft.
+    ExternalToolExecution.query.filter_by(proposal_id=id).update({'proposal_id': None})
+    db.session.delete(proposal)
+    db.session.commit()
+    return jsonify({'message': '草稿已删除'})
+
+
 @bp.route('/<int:id>', methods=['PATCH'])
 @token_required
 def update_proposal(current_user, id):
@@ -1007,6 +1117,15 @@ def update_proposal(current_user, id):
         return jsonify({'message': '当前状态下不能编辑此提案'}), 403
 
     data = request.get_json() or {}
+    draft_state = proposal.current_state and proposal.current_state.name in ('草稿', 'Draft')
+    if 'season_id' in data:
+        if not draft_state:
+            return jsonify({'message': '只有草稿可以变更申请批次'}), 403
+        accepting_season = get_accepting_season()
+        if accepting_season is None or str(data['season_id']) != str(accepting_season.id):
+            return jsonify({'message': '所选批次已不在申请期，请刷新页面'}), 409
+        proposal.season = accepting_season
+
     title = str(data.get('title', proposal.title)).strip()
     if not title and proposal.current_state and proposal.current_state.name not in ('草稿', 'Draft'):
         return jsonify({'message': '请填写提案名称'}), 400
@@ -1021,7 +1140,6 @@ def update_proposal(current_user, id):
             db.session.add(phase)
         phase.payload = phase_payload
 
-    draft_state = proposal.current_state and proposal.current_state.name in ('草稿', 'Draft')
     if draft_state and 'instruments' in data:
         requested = data['instruments'] or []
         requested_codes = [entry.get('instrument_code') for entry in requested]
@@ -1108,9 +1226,16 @@ def submit_instrument_feedback(current_user, id, instrument_code):
 
     data = request.get_json() or {}
     payload = dict(data.get('payload') or {})
+    allocation_fields = {'data_products', 'observation_id', 'allocated_at', 'allocated_by'}
+    if allocation_fields.intersection(payload):
+        return jsonify({'message': '观测反馈不能修改数据授权；请使用数据分配功能'}), 400
+    existing_feedback = proposal_instrument.scheduling_feedback or {}
+    payload.update({key: existing_feedback[key] for key in allocation_fields if key in existing_feedback})
     status = payload.get('status')
     if status not in {'scheduled', 'completed', 'unable'}:
         return jsonify({'message': '请选择观测状态'}), 400
+    if (existing_feedback.get('data_products') or []) and status != 'completed':
+        return jsonify({'message': '该仪器已有授权数据，不能改为未完成观测'}), 409
     if not str(payload.get('summary') or '').strip():
         return jsonify({'message': '请填写观测安排或最终执行结果'}), 400
     if status == 'completed':
@@ -1142,7 +1267,9 @@ def allocate_instrument_data(current_user, id, instrument_code):
 
     proposal = Proposal.query.get_or_404(id)
     if not _can_allocate_data(proposal):
-        return jsonify({'message': '仅可向等待分配观测数据的研究提案分配数据'}), 400
+        return jsonify({'message': '提案已办结或尚未进入数据分配阶段，不能分配数据'}), 409
+    if not can_allocate_to_season(proposal.season):
+        return jsonify({'message': '该批次已超过数据释放最晚时间，不能再分配数据'}), 409
 
     instrument = Instrument.query.filter_by(code=instrument_code).first()
     if instrument is None:
@@ -1150,6 +1277,8 @@ def allocate_instrument_data(current_user, id, instrument_code):
     proposal_instrument = proposal.instruments.filter_by(instrument_id=instrument.id).first()
     if proposal_instrument is None:
         return jsonify({'message': '此提案未申请该仪器'}), 404
+    if _is_opportunity_proposal(proposal) and (proposal_instrument.scheduling_feedback or {}).get('status') != 'completed':
+        return jsonify({'message': '只能为已完成观测的仪器分配数据'}), 409
 
     data = request.get_json() or {}
     observation_id = str(data.get('observation_id') or '').strip()
@@ -1178,19 +1307,18 @@ def allocate_instrument_data(current_user, id, instrument_code):
     products = list(existing.get('data_products') or [])
     products = [item for item in products if item.get('name') != product_name]
     products.append(product)
-    feedback = {
-        **existing,
-        'status': 'data_ready',
-        'observation_id': observation_id,
-        'summary': str(data.get('summary') or '观测数据已完成关联，并向提案者开放访问。').strip(),
-        'visibility_window': str(data.get('visibility_window') or existing.get('visibility_window') or '—'),
-        'completed_at': str(data.get('completed_at') or existing.get('completed_at') or datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')),
-        'allocated_at': datetime.utcnow().isoformat(),
-        'allocated_by': current_user.username,
-        'data_products': products,
-    }
+    feedback = {**existing, 'allocated_at': datetime.utcnow().isoformat(),
+                'allocated_by': current_user.username, 'data_products': products}
+    if _is_research_proposal(proposal):
+        feedback.update({
+            'status': 'data_ready', 'observation_id': observation_id,
+            'summary': str(data.get('summary') or '观测数据已完成关联，并向提案者开放访问。').strip(),
+            'visibility_window': str(data.get('visibility_window') or existing.get('visibility_window') or '—'),
+            'completed_at': str(data.get('completed_at') or existing.get('completed_at') or datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')),
+        })
     proposal_instrument.scheduling_feedback = feedback
-    proposal_instrument.status = 'data_ready'
+    if _is_research_proposal(proposal):
+        proposal_instrument.status = 'data_ready'
     db.session.flush()
 
     transition_by_state = {
@@ -1217,13 +1345,15 @@ def allocate_instrument_data(current_user, id, instrument_code):
 @bp.route('/<int:id>/instruments/<string:instrument_code>/data-allocation', methods=['DELETE'])
 @token_required
 def revoke_instrument_data(current_user, id, instrument_code):
-    """Revoke one product; reopen data allocation when no products remain."""
+    """Revoke one product before the batch's data-release deadline."""
     if not current_user.has_role('Proposal Manager') and not current_user.has_role('Admin'):
         return jsonify({'message': '仅提案管理员可取消数据分配'}), 403
 
     proposal = Proposal.query.get_or_404(id)
     if not _can_allocate_data(proposal):
-        return jsonify({'message': '当前提案不能取消数据分配'}), 400
+        return jsonify({'message': '提案已办结或不在数据分配阶段，不能修改数据授权'}), 409
+    if not can_allocate_to_season(proposal.season):
+        return jsonify({'message': '该批次已超过数据释放最晚时间，不能修改数据授权'}), 409
 
     instrument = Instrument.query.filter_by(code=instrument_code).first()
     if instrument is None:
@@ -1241,13 +1371,20 @@ def revoke_instrument_data(current_user, id, instrument_code):
     if len(remaining) == len(products):
         return jsonify({'message': '未找到已分配的数据产品'}), 404
 
-    if remaining:
+    if remaining and _is_research_proposal(proposal):
         feedback['data_products'] = remaining
         latest_observation_id = remaining[-1].get('observation_id')
         if latest_observation_id:
             feedback['observation_id'] = latest_observation_id
         if remaining[-1].get('summary'):
             feedback['summary'] = remaining[-1]['summary']
+        proposal_instrument.scheduling_feedback = feedback
+    elif remaining:
+        feedback['data_products'] = remaining
+        proposal_instrument.scheduling_feedback = feedback
+    elif _is_opportunity_proposal(proposal):
+        for key in ('allocated_at', 'allocated_by', 'data_products'):
+            feedback.pop(key, None)
         proposal_instrument.scheduling_feedback = feedback
     else:
         # Keep unrelated instrument feedback, but remove all allocation-only details.
@@ -1259,14 +1396,6 @@ def revoke_instrument_data(current_user, id, instrument_code):
 
     db.session.flush()
     previous_state = proposal.current_state.name if proposal.current_state else None
-    if not _has_allocated_data(proposal) and previous_state in {'数据已授权', '已完成'}:
-        waiting_state = WorkflowState.query.filter_by(
-            workflow_id=proposal.proposal_type.workflow_id, name='待分配观测数据'
-        ).first()
-        if waiting_state is None:
-            db.session.rollback()
-            return jsonify({'message': '流程缺少待分配观测数据状态，取消失败'}), 409
-        proposal.current_state = waiting_state
     db.session.add(ProposalStateHistory(
         proposal=proposal,
         from_state=previous_state,
@@ -1324,6 +1453,16 @@ def _has_allocated_data(proposal):
     )
 
 
+def _can_publish_observation_result(proposal):
+    if not _has_final_observation_feedback(proposal):
+        return False
+    has_completed_observation = any(
+        (item.scheduling_feedback or {}).get('status') == 'completed'
+        for item in proposal.instruments
+    )
+    return not has_completed_observation or _has_allocated_data(proposal)
+
+
 _DECISION_OUTCOMES = {
     'committee_approve': 'pass',
     'committee_reject': 'reject',
@@ -1347,6 +1486,14 @@ def list_transitions(current_user, id):
     transitions = [item for item in transitions if not _is_review_stage_return(proposal, item['name'])]
     if proposal.user_id != current_user.id:
         transitions = [item for item in transitions if item['name'] not in {'submit', 'submit_phase1', 'resubmit'}]
+    if not can_submit_to_season(_submission_season(proposal)):
+        transitions = [item for item in transitions if item['name'] not in {'submit', 'submit_phase1', 'resubmit'}]
+    if state == '待修改' and _return_deadline(proposal) and datetime.utcnow() > _return_deadline(proposal):
+        transitions = [item for item in transitions if item['name'] != 'resubmit']
+    if not can_allocate_to_season(proposal.season):
+        transitions = [item for item in transitions if item['name'] != 'grant_data']
+    if state == '已推送观测编排' and not _can_publish_observation_result(proposal):
+        transitions = [item for item in transitions if item['name'] != 'record_feedback']
     if state in {'待技术评审', '待科学评审'}:
         progress = _review_progress(proposal)
         transitions = [item for item in transitions if item['name'] not in {'technical_pass', 'science_complete'} or (
@@ -1373,8 +1520,22 @@ def trigger_transition(current_user, id):
 
     if transition_name in {'submit', 'submit_phase1', 'resubmit'} and proposal.user_id != current_user.id:
         return jsonify({'message': '仅申请人可提交本人提案'}), 403
+    if transition_name == 'resubmit' and proposal.current_state and proposal.current_state.name == '待修改':
+        deadline = _return_deadline(proposal)
+        if deadline and datetime.utcnow() > deadline:
+            return jsonify({'message': '已超过形式审查退回提案的最晚提交时间'}), 409
+    if transition_name in {'submit', 'submit_phase1', 'resubmit'} and not can_submit_to_season(_submission_season(proposal)):
+        return jsonify({'message': '该批次已不在申请期，不能提交提案'}), 409
 
     state = proposal.current_state.name if proposal.current_state else ''
+    if transition_name == 'format_revision' and state == '待形式审查':
+        if not current_user.has_role('Admin'):
+            return jsonify({'message': '仅系统管理员可退回形式审查提案'}), 403
+        try:
+            deadline = _validated_return_deadline(proposal, (data.get('context') or {}).get('formal_return_deadline'))
+        except ValueError as exc:
+            return jsonify({'message': str(exc)}), 400
+        proposal.data = {**(proposal.data or {}), 'formal_return_deadline': deadline.isoformat()}
     if transition_name == 'complete' and proposal.proposal_type.name.startswith('DSL '):
         return jsonify({'message': '该提案已在数据授权或最终执行结果发布时办结，无需申请人确认'}), 400
     if _is_review_stage_return(proposal, transition_name):
@@ -1388,12 +1549,18 @@ def trigger_transition(current_user, id):
     if state in {'草稿', 'Draft'} and transition_name in {'submit', 'submit_phase1'}:
         if not proposal.title.strip() or proposal.title == '未命名提案' or not proposal.abstract.strip() or proposal.instruments.count() == 0:
             return jsonify({'message': '请填写提案名称、摘要并选择仪器后再正式提交'}), 400
+        if proposal.season and proposal.season.id != _submission_season(proposal).id:
+            proposal.season = _submission_season(proposal)
         for instrument_entry in proposal.instruments:
             instrument_entry.status = 'submitted'
     if transition_name == 'record_feedback' and state == '已推送观测编排' and not _has_final_observation_feedback(proposal):
         return jsonify({'message': '请先填写最终执行结果，再发布并办结提案'}), 400
+    if transition_name == 'record_feedback' and state == '已推送观测编排' and not _can_publish_observation_result(proposal):
+        return jsonify({'message': '已完成观测的提案须先分配数据，再发布结果并办结'}), 409
     if transition_name == 'grant_data' and state == '待分配观测数据' and not _has_allocated_data(proposal):
         return jsonify({'message': '请先选择数据产品并授权'}), 400
+    if transition_name == 'grant_data' and not can_allocate_to_season(proposal.season):
+        return jsonify({'message': '该批次已超过数据释放最晚时间'}), 409
     if transition_name in _DECISION_OUTCOMES and state == '待最终决策':
         if not _can_review(current_user, proposal, 'committee'):
             return jsonify({'message': '仅获分配的科学委员会委员可提交最终决策'}), 403

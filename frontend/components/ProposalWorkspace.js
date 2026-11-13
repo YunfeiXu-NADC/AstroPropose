@@ -72,6 +72,7 @@ export default function ProposalWorkspace({ view = 'all', personalType = 'all' }
   const [query, setQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [seasonFilter, setSeasonFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -108,6 +109,7 @@ export default function ProposalWorkspace({ view = 'all', personalType = 'all' }
       .sort((left, right) => left.localeCompare(right, 'zh-CN')),
     [proposals]
   );
+  const seasonOptions = useMemo(() => [...new Map(proposals.filter((proposal) => proposal.season).map((proposal) => [proposal.season.id, proposal.season])).values()], [proposals]);
 
   const filteredProposals = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -117,6 +119,9 @@ export default function ProposalWorkspace({ view = 'all', personalType = 'all' }
           return false;
         }
         if (view === 'admin' && statusFilter !== 'all' && getProposalStatusPresentation(proposal.status).label !== statusFilter) {
+          return false;
+        }
+        if (view === 'admin' && seasonFilter !== 'all' && String(proposal.season?.id) !== seasonFilter) {
           return false;
         }
         if (view === 'all' && personalType !== 'all') {
@@ -134,11 +139,12 @@ export default function ProposalWorkspace({ view = 'all', personalType = 'all' }
           proposal.status,
           proposal.author?.username,
           proposal.proposal_type?.name,
+          proposal.season?.name,
           `RPS-${String(proposal.id).padStart(5, '0')}`,
         ].some((value) => String(value || '').toLowerCase().includes(normalizedQuery));
       })
       .sort((left, right) => Number(right.id) - Number(left.id));
-  }, [personalType, proposals, query, statusFilter, typeFilter, user, view]);
+  }, [personalType, proposals, query, seasonFilter, statusFilter, typeFilter, user, view]);
 
   const researchCount = proposals.filter((item) => getProposalKind(item.proposal_type?.name) === 'research').length;
   const opportunityCount = proposals.filter((item) => getProposalKind(item.proposal_type?.name) === 'opportunity').length;
@@ -149,10 +155,13 @@ export default function ProposalWorkspace({ view = 'all', personalType = 'all' }
   const isFeedbackList = view === 'feedback';
   const isPersonalProposalList = view === 'all';
   const tableColumns = isAllocationList
-    ? 'min-[840px]:grid-cols-[minmax(220px,1.25fr)_minmax(190px,0.9fr)_minmax(180px,1fr)]'
+    ? 'min-[840px]:grid-cols-[minmax(200px,1.25fr)_minmax(90px,0.55fr)_minmax(120px,0.75fr)_minmax(160px,1fr)]'
     : isFeedbackList
       ? 'min-[1050px]:grid-cols-[minmax(220px,1.4fr)_95px_minmax(100px,0.65fr)_minmax(150px,0.9fr)_minmax(220px,1.4fr)]'
-      : 'min-[840px]:grid-cols-[minmax(165px,1fr)_80px_145px_minmax(280px,1.55fr)]';
+      : 'min-[1120px]:grid-cols-[minmax(180px,1fr)_85px_minmax(90px,0.55fr)_minmax(125px,0.8fr)_minmax(280px,1.65fr)]';
+  const tableBreakpoint = isFeedbackList ? 'min-[1050px]:grid' : isAllocationList ? 'min-[840px]:grid' : 'min-[1120px]:grid';
+  const rowBreakpoint = isFeedbackList ? 'min-[1050px]:col-span-1' : isAllocationList ? 'min-[840px]:col-span-1' : 'min-[1120px]:col-span-1';
+  const labelBreakpoint = isFeedbackList ? 'min-[1050px]:hidden' : isAllocationList ? 'min-[840px]:hidden' : 'min-[1120px]:hidden';
 
   if (loading) {
     return <div className="mx-auto max-w-[1450px] py-16 text-sm text-slate-500">正在加载提案列表…</div>;
@@ -207,6 +216,15 @@ export default function ProposalWorkspace({ view = 'all', personalType = 'all' }
           )}
           {isAdminList && (
             <label className="block w-40 shrink-0">
+              <span className="sr-only">按提案批次筛选</span>
+              <select value={seasonFilter} onChange={(event) => setSeasonFilter(event.target.value)} className="rps-field h-full min-h-10 bg-white text-sm" aria-label="按提案批次筛选">
+                <option value="all">全部批次</option>
+                {seasonOptions.map((season) => <option key={season.id} value={season.id}>{season.name}</option>)}
+              </select>
+            </label>
+          )}
+          {isAdminList && (
+            <label className="block w-40 shrink-0">
               <span className="sr-only">按状态筛选</span>
               <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="rps-field h-full min-h-10 bg-white text-sm" aria-label="按状态筛选">
                 <option value="all">全部状态</option>
@@ -218,12 +236,12 @@ export default function ProposalWorkspace({ view = 'all', personalType = 'all' }
       </ListPageToolbar>
 
       <section className="mt-5 overflow-hidden border-y border-slate-200 bg-white" aria-label="提案列表">
-        <div className={`hidden gap-3 bg-slate-50 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 ${isFeedbackList ? 'min-[1050px]:grid' : 'min-[840px]:grid'} ${tableColumns}`}>
-          {isFeedbackList ? (
-            <><span>提案</span><span>类型</span><span>申请人</span><span>状态</span><span>观测反馈</span></>
-          ) : (
-            <><span>提案</span>{!isAllocationList && <span>类型</span>}<span>申请人 · 状态</span><span>{isAllocationList ? '数据授权状态' : '流程进度'}</span></>
-          )}
+        <div className={`hidden gap-3 bg-slate-50 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 ${tableBreakpoint} ${tableColumns}`}>
+          <span>提案</span>
+          {!isAllocationList && <span>类型</span>}
+          <span>申请人</span>
+          <span>状态</span>
+          <span>{isFeedbackList ? '观测反馈' : isAllocationList ? '数据授权状态' : '流程进度'}</span>
         </div>
 
         {filteredProposals.map((proposal) => {
@@ -233,25 +251,20 @@ export default function ProposalWorkspace({ view = 'all', personalType = 'all' }
           const statusPresentation = getProposalStatusPresentation(proposal.status);
           return (
             <article key={proposal.id} className="border-t border-slate-100 first:border-t-0" style={getProposalRowStyle(proposal.workflow?.definition, proposal.status)}>
-              <Link href={view === 'admin' ? `/proposals/${proposal.id}?mode=admin` : view === 'feedback' && user?.roles?.includes('Instrument Scheduler') ? `/proposals/${proposal.id}?mode=scheduling#observation-feedback` : view === 'feedback' ? `/proposals/${proposal.id}?from=feedback#observation-feedback` : view === 'allocation' ? `/proposals/${proposal.id}?mode=allocation#data-allocation` : ['草稿', 'Draft'].includes(proposal.status) ? `/proposals/new?draft=${proposal.id}` : `/proposals/${proposal.id}`} className={`grid items-center gap-x-3 gap-y-2 px-4 py-3 transition-colors hover:bg-slate-50/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#3347b8] ${isAllocationList ? `grid-cols-1 ${tableColumns}` : `grid-cols-[minmax(0,1fr)_auto] ${tableColumns}`}`} aria-label={`查看提案：${proposal.title}`}>
-                <div className="min-w-0">
-                  <p className="font-mono text-[11px] text-slate-400">{['草稿', 'Draft'].includes(proposal.status) ? '未生成编号' : `RPS-${String(proposal.id).padStart(5, '0')}`}</p>
+              <Link href={view === 'admin' ? `/proposals/${proposal.id}?mode=admin` : view === 'feedback' && user?.roles?.includes('Instrument Scheduler') ? `/proposals/${proposal.id}?mode=scheduling#observation-feedback` : view === 'feedback' ? `/proposals/${proposal.id}?from=feedback#observation-feedback` : view === 'allocation' ? `/proposals/${proposal.id}?mode=allocation#data-allocation` : ['草稿', 'Draft'].includes(proposal.status) ? `/proposals/new?draft=${proposal.id}` : `/proposals/${proposal.id}`} className={`grid grid-cols-[minmax(0,1fr)_auto] min-[640px]:grid-cols-2 items-center gap-x-3 gap-y-2 px-4 py-3 transition-colors hover:bg-slate-50/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#3347b8] ${tableColumns}`} aria-label={`查看提案：${proposal.title}`}>
+                <div className={`min-w-0 ${isAllocationList ? `col-span-2 ${rowBreakpoint}` : ''}`}>
+                  <p className="truncate text-[11px] text-slate-400"><span className="font-mono">{['草稿', 'Draft'].includes(proposal.status) ? '未生成编号' : `RPS-${String(proposal.id).padStart(5, '0')}`}</span>{proposal.season && <span> · {proposal.season.name}</span>}</p>
                   <h2 className="mt-0.5 truncate text-sm font-semibold text-slate-950" title={proposal.title}>{proposal.title}</h2>
+                  {isPersonalProposalList && proposal.can_submit_result && <span className="mt-1 inline-block text-xs font-semibold text-[#3347b8]">待提交研究成果</span>}
                 </div>
                 {!isAllocationList && <div>
                   <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${TYPE_LABEL_TONES[kind]}`}>
                     {kind === 'opportunity' ? '机遇观测' : '研究提案'}
                   </span>
                 </div>}
-                {isFeedbackList ? (
-                  <>
-                    <p className="min-w-0 truncate text-xs leading-5 text-slate-600"><span className="text-slate-400 min-[1050px]:hidden">申请人：</span>{proposal.author?.username || '—'}</p>
-                    <p className={`min-w-0 text-xs font-semibold leading-5 ${STATUS_TEXT_TONES[statusPresentation.tone]}`}><span className="font-normal text-slate-400 min-[1050px]:hidden">状态：</span>{statusPresentation.label}</p>
-                  </>
-                ) : (
-                  <p className={`${isAllocationList ? '' : 'col-span-2 min-[840px]:col-span-1'} min-w-0 text-xs leading-5 text-slate-600`}><span className="text-slate-400 min-[840px]:hidden">申请人：</span>{proposal.author?.username || '—'}<span className="mx-1.5 text-slate-300">·</span><span className={`font-semibold ${STATUS_TEXT_TONES[statusPresentation.tone]}`}>{statusPresentation.label}</span></p>
-                )}
-                <div className={`${isAllocationList ? '' : isFeedbackList ? 'col-span-2 min-[1050px]:col-span-1' : 'col-span-2 min-[840px]:col-span-1'} min-w-0`}>
+                <p className="min-w-0 truncate text-xs leading-5 text-slate-600"><span className={`text-slate-400 ${labelBreakpoint}`}>申请人：</span>{proposal.author?.username || '—'}</p>
+                <p className={`min-w-0 text-xs font-semibold leading-5 ${STATUS_TEXT_TONES[statusPresentation.tone]}`}><span className={`font-normal text-slate-400 ${labelBreakpoint}`}>状态：</span>{statusPresentation.label}</p>
+                <div className={`col-span-2 min-w-0 ${rowBreakpoint}`}>
                   {view === 'feedback' ? (
                     <p className="text-xs leading-5 text-slate-600">{feedbackSummary(proposal)}</p>
                   ) : view === 'allocation' ? (
@@ -269,7 +282,7 @@ export default function ProposalWorkspace({ view = 'all', personalType = 'all' }
           <div className="flex min-h-72 flex-col items-center justify-center px-6 text-center">
             <BeakerIcon className="h-9 w-9 text-[#7899a7]" />
             <h2 className="mt-4 text-base font-semibold text-slate-900">没有符合条件的提案</h2>
-            <p className="mt-1 text-sm text-slate-500">{query.trim() ? '没有匹配搜索条件的提案。' : isAdminList && (typeFilter !== 'all' || statusFilter !== 'all') ? '没有符合当前类别和状态的提案。' : isPersonalProposalList ? personalType === 'all' ? '你还没有提交提案。' : `当前没有${personalType === 'research' ? '研究提案' : '机遇观测'}。` : '当前列表暂无记录。'}</p>
+            <p className="mt-1 text-sm text-slate-500">{query.trim() ? '没有匹配搜索条件的提案。' : isAdminList && (typeFilter !== 'all' || statusFilter !== 'all' || seasonFilter !== 'all') ? '没有符合当前筛选条件的提案。' : isPersonalProposalList ? personalType === 'all' ? '你还没有提交提案。' : `当前没有${personalType === 'research' ? '研究提案' : '机遇观测'}。` : '当前列表暂无记录。'}</p>
             {canCreate && !query.trim() && <Link href="/proposals/new" className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#3347b8]">创建新提案 <ArrowRightIcon className="h-4 w-4" /></Link>}
           </div>
         )}

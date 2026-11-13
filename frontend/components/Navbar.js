@@ -9,6 +9,7 @@ import {
   Bars3Icon,
   ClipboardDocumentCheckIcon,
   CircleStackIcon,
+  CalendarDaysIcon,
   CpuChipIcon,
   DocumentTextIcon,
   FolderOpenIcon,
@@ -22,11 +23,15 @@ import {
   WrenchScrewdriverIcon,
   XMarkIcon,
 } from '@heroicons/react/24/outline';
-import { getCurrentUser } from '@/lib/api';
+import { getCurrentUser, listResearchOutputs } from '@/lib/api';
 import { getWorkspaceEntriesForRoles } from '@/lib/navigationPolicy.mjs';
+import packageInfo from '../package.json';
+
+const appVersion = packageInfo.version;
 
 const workspaceIcons = {
   proposals: FolderOpenIcon,
+  results: DocumentTextIcon,
   reviews: ClipboardDocumentCheckIcon,
   feedback: SignalIcon,
   dataAllocation: CircleStackIcon,
@@ -34,6 +39,7 @@ const workspaceIcons = {
 
 const adminItems = [
   { href: '/admin/proposals', label: '全部提案', icon: FolderOpenIcon },
+  { href: '/admin/seasons', label: '提案批次', icon: CalendarDaysIcon },
   { href: '/admin/workflows', label: '流程管理', icon: AdjustmentsHorizontalIcon },
   { href: '/admin/users', label: '用户', icon: UsersIcon },
   { href: '/admin/roles', label: '角色', icon: ShieldCheckIcon },
@@ -43,7 +49,7 @@ const adminItems = [
   { href: '/admin/external-tools', label: '外部工具', icon: WrenchScrewdriverIcon },
 ];
 
-function SidebarContent({ isLoggedIn, roles, onLogout, onNavigate }) {
+function SidebarContent({ isLoggedIn, roles, openFeedbackCount, onLogout, onNavigate }) {
   const pathname = usePathname();
   const visibleItems = getWorkspaceEntriesForRoles(roles, isLoggedIn);
 
@@ -56,7 +62,7 @@ function SidebarContent({ isLoggedIn, roles, onLogout, onNavigate }) {
           </span>
           <span>
             <span className="block text-[15px] font-semibold tracking-wide text-white">鸿蒙计划</span>
-            <span className="mt-0.5 block text-[10px] tracking-[0.2em] text-slate-400">提案评审系统</span>
+            <span className="mt-0.5 block text-[10px] tracking-[0.2em] text-slate-400">提案评审系统 · v{appVersion}</span>
           </span>
         </Link>
       </div>
@@ -92,6 +98,7 @@ function SidebarContent({ isLoggedIn, roles, onLogout, onNavigate }) {
               >
                 <Icon className={`h-5 w-5 ${active ? 'text-[#9fb7c1]' : ''}`} />
                 {item.label}
+                {item.key === 'results' && openFeedbackCount > 0 && <span className="ml-auto rounded-full bg-indigo-500/25 px-2 py-0.5 text-[11px] font-semibold text-indigo-100" aria-label={`${openFeedbackCount} 项成果正在征求意见`}>{openFeedbackCount}</span>}
               </Link>
             );
           })}
@@ -147,6 +154,7 @@ function SidebarContent({ isLoggedIn, roles, onLogout, onNavigate }) {
 export default function Navbar() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [roles, setRoles] = useState([]);
+  const [openFeedbackCount, setOpenFeedbackCount] = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
   const router = useRouter();
 
@@ -156,28 +164,39 @@ export default function Navbar() {
       setIsLoggedIn(Boolean(token));
       if (!token) {
         setRoles([]);
+        setOpenFeedbackCount(0);
         return;
       }
       try {
         const me = await getCurrentUser();
         setRoles(me.roles || []);
+        try {
+          const results = await listResearchOutputs();
+          setOpenFeedbackCount(results.open_feedback_count || 0);
+        } catch { setOpenFeedbackCount(0); }
       } catch (error) {
         console.error('Failed to get user data:', error);
         localStorage.removeItem('token');
         setIsLoggedIn(false);
         setRoles([]);
+        setOpenFeedbackCount(0);
       }
     };
 
     checkAuth();
     window.addEventListener('auth-change', checkAuth);
-    return () => window.removeEventListener('auth-change', checkAuth);
+    const refreshTimer = window.setInterval(checkAuth, 60_000);
+    return () => {
+      window.removeEventListener('auth-change', checkAuth);
+      window.clearInterval(refreshTimer);
+    };
   }, []);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     setIsLoggedIn(false);
     setRoles([]);
+    setOpenFeedbackCount(0);
     setMobileOpen(false);
     window.dispatchEvent(new Event('auth-change'));
     router.push('/login');
@@ -186,13 +205,14 @@ export default function Navbar() {
   return (
     <>
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-[212px] bg-[#07111f] lg:block">
-        <SidebarContent isLoggedIn={isLoggedIn} roles={roles} onLogout={handleLogout} />
+        <SidebarContent isLoggedIn={isLoggedIn} roles={roles} openFeedbackCount={openFeedbackCount} onLogout={handleLogout} />
       </aside>
 
       <header className="fixed inset-x-0 top-0 z-40 flex h-16 items-center justify-between border-b border-slate-200 bg-white/95 px-4 backdrop-blur lg:hidden">
         <Link href="/" className="flex items-center gap-2 font-semibold text-slate-900">
           <MoonIcon className="h-6 w-6 text-[#3347b8]" />
           鸿蒙计划 RPS
+          <span className="text-xs font-normal text-slate-500">v{appVersion}</span>
         </Link>
         <button type="button" onClick={() => setMobileOpen(true)} className="rounded-lg border border-slate-200 p-2 text-slate-700" aria-label="打开导航">
           <Bars3Icon className="h-6 w-6" />
@@ -206,7 +226,7 @@ export default function Navbar() {
             <button onClick={() => setMobileOpen(false)} className="absolute right-3 top-3 z-10 rounded-lg p-2 text-slate-400 hover:bg-white/10 hover:text-white" aria-label="关闭导航">
               <XMarkIcon className="h-5 w-5" />
             </button>
-            <SidebarContent isLoggedIn={isLoggedIn} roles={roles} onLogout={handleLogout} onNavigate={() => setMobileOpen(false)} />
+            <SidebarContent isLoggedIn={isLoggedIn} roles={roles} openFeedbackCount={openFeedbackCount} onLogout={handleLogout} onNavigate={() => setMobileOpen(false)} />
           </aside>
         </div>
       )}

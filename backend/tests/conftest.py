@@ -1,12 +1,14 @@
 import pytest
 import os
 import tempfile
+from datetime import datetime, timedelta
 
 from app import create_app, db
 from app.models.models import (
     FormTemplate,
     Instrument,
     ProposalType,
+    ProposalSeason,
     Role,
     User,
     Workflow,
@@ -67,6 +69,14 @@ def seed_reference_data():
         scheduler_role,
         chair_role,
     ])
+
+    now = datetime.utcnow()
+    db.session.add(ProposalSeason(
+        name='测试批次',
+        start_date=now - timedelta(days=1),
+        end_date=now + timedelta(days=1),
+        data_release_deadline=now + timedelta(days=2),
+    ))
 
     workflow_definition = {
         "initial_state": "Draft",

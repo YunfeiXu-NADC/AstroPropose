@@ -27,6 +27,7 @@ class User(db.Model):
     proposals = db.relationship("Proposal", backref="author", lazy="dynamic")
     instrument_feedbacks = db.relationship("InstrumentFeedback", backref="scheduler", lazy="dynamic")
     proposal_reviews = db.relationship("ProposalReview", backref="reviewer", lazy="dynamic")
+    research_output_comments = db.relationship("ResearchOutputComment", backref="author", lazy="dynamic")
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -63,9 +64,12 @@ class ProposalSeason(db.Model):
     name = db.Column(db.String(140), nullable=False)
     start_date = db.Column(db.DateTime)
     end_date = db.Column(db.DateTime)
+    data_release_deadline = db.Column(db.DateTime)
+    is_legacy = db.Column(db.Boolean, nullable=False, default=False)
     phase_one_deadline = db.Column(db.DateTime)
     phase_two_deadline = db.Column(db.DateTime)
     proposal_types = db.relationship("ProposalType", backref="season", lazy="dynamic")
+    proposals = db.relationship("Proposal", backref="season", lazy="dynamic")
 
 
 class Workflow(db.Model):
@@ -141,6 +145,7 @@ class Proposal(db.Model):
     timestamp = db.Column(db.DateTime, index=True, default=datetime.utcnow)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False)
     proposal_type_id = db.Column(db.Integer, db.ForeignKey("proposal_type.id"), nullable=False)
+    season_id = db.Column(db.Integer, db.ForeignKey("proposal_season.id"), index=True)
     current_state_id = db.Column(db.Integer, db.ForeignKey("workflow_state.id"))
     data = db.Column(db.JSON, default=dict)
 
@@ -153,6 +158,9 @@ class Proposal(db.Model):
     )
     reviews = db.relationship(
         "ProposalReview", backref="proposal", lazy="dynamic", cascade="all, delete-orphan"
+    )
+    research_output = db.relationship(
+        "ResearchOutput", backref="proposal", uselist=False, cascade="all, delete-orphan"
     )
 
 
@@ -188,6 +196,46 @@ class ProposalReview(db.Model):
         ),
         db.Index("ix_proposal_review_queue", "proposal_id", "review_type", "status"),
     )
+
+
+class ResearchOutput(db.Model):
+    """Post-data scientific publication process, separate from proposal approval."""
+
+    __tablename__ = 'research_output'
+    id = db.Column(db.Integer, primary_key=True)
+    proposal_id = db.Column(db.Integer, db.ForeignKey('proposal.id'), nullable=False, unique=True)
+    title = db.Column(db.String(240), nullable=False)
+    summary = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(32), nullable=False, default='feedback_open')
+    draft_file = db.Column(db.JSON, nullable=False)
+    submitted_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    feedback_deadline = db.Column(db.DateTime, nullable=False)
+    revised_file = db.Column(db.JSON)
+    revision_note = db.Column(db.Text)
+    revised_at = db.Column(db.DateTime)
+    committee_note = db.Column(db.Text)
+    committee_decision_by_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    committee_decided_at = db.Column(db.DateTime)
+    journal_name = db.Column(db.String(240))
+    journal_submitted_at = db.Column(db.DateTime)
+    journal_accepted_at = db.Column(db.DateTime)
+    publication_reference = db.Column(db.Text)
+    final_file = db.Column(db.JSON)
+    published_at = db.Column(db.DateTime)
+    history = db.Column(db.JSON, nullable=False, default=list)
+    comments = db.relationship(
+        'ResearchOutputComment', backref='output', lazy='dynamic', cascade='all, delete-orphan'
+    )
+    committee_decider = db.relationship('User', foreign_keys=[committee_decision_by_id])
+
+
+class ResearchOutputComment(db.Model):
+    __tablename__ = 'research_output_comment'
+    id = db.Column(db.Integer, primary_key=True)
+    output_id = db.Column(db.Integer, db.ForeignKey('research_output.id'), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    body = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
 
 
 class ProposalPhase(db.Model):

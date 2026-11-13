@@ -24,7 +24,11 @@ export default function LoginPage() {
         router.push('/dashboard');
       }
     } catch (err) {
-      setError('登录失败，请检查用户名和密码。');
+      setError(err instanceof TypeError
+        ? '登录服务暂不可用，请联系管理员检查后台服务。'
+        : err.status === 401
+          ? '用户名或密码不正确。'
+          : err.info?.message || '登录失败，请稍后重试。');
       console.error(err);
     }
   };
